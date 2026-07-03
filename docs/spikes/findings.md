@@ -39,11 +39,13 @@ Confirmed. The `userDataProfiles` array in storage.json holds one entry per name
 
 Also observed: `location` can be a bare hex id (`4328b3eb`) or a slash-containing path (`builtin/agents`), confirming the plan's note that location may contain `/`. `icon` is present on user-created profiles and absent on the built-in "Agents" profile.
 
+How the profile list was checked: the five names printed by the script (Blog, Work, Maester, .NET Projects, Agents) were compared against the machine's Profiles UI list — exact match, no extras or missing entries.
+
 ### Fact 2 — `useDefaultFlags.extensions: true` = inherits default profile's extensions
 
 Confirmed. Only "Agents" sets `useDefaultFlags.extensions: true`, and it has no `extensions.json` file under its profile folder (script reports `own=none`). The other four named profiles ("Blog", "Work", "Maester", ".NET Projects") omit `extensions` from `useDefaultFlags` (implicitly false) and each has its own `extensions.json`, including one with zero entries (".NET Projects", `own=0` — an empty-but-present array, distinct from "no file").
 
-```
+```text
 profile "Blog" (4328b3eb) inheritsExtensions=false own=11
 profile "Work" (7cdc4d19) inheritsExtensions=false own=11
 profile "Maester" (6d1aeaf5) inheritsExtensions=false own=8
@@ -98,7 +100,7 @@ Confirmed. 21 entries in the global manifest carry `isApplicationScoped: true` (
 }
 ```
 
-Cross-check: `code --profile "Blog" --list-extensions` returned the union of Blog's 11 own entries plus the application-scoped set (31 total, minus any name overlap), consistent with app-scoped extensions being visible in every profile regardless of that profile's own `extensions.json`.
+Cross-check: `code --profile "Blog" --list-extensions` returned exactly 32 distinct ids — the **exact, non-overlapping union** of Blog's 11 own `extensions.json` entries and the 21 application-scoped ids (verified programmatically: intersection of the two id sets is empty; 11 + 21 = 32). No dedup case exists in this data: an id appears in a profile's own list or in the app-scoped set, never both. This is consistent with app-scoped extensions being visible in every profile regardless of that profile's own `extensions.json`.
 
 ### Fact 6 — extension pool + `.obsolete`
 
@@ -114,15 +116,19 @@ Confirmed. All versions live as `<publisher.name>-<version>[-<platform>]` folder
 
 New observation (not previously documented): after the Step 2 uninstall (below), `ms-vscode.hexeditor-1.11.1` appeared as a new `.obsolete` entry, and the folder itself was still present on disk (67 folders, up from 66). This confirms `.obsolete` is VS Code's own deferred-deletion marker — `--uninstall-extension` marks a folder obsolete immediately but the physical folder is swept later (on next full GUI session's extension GC), not synchronously by the CLI. Parsers/orphan logic (fact 7) should keep excluding `.obsolete`-marked folders from "orphan" regardless of whether they were marked by GUI or CLI action.
 
+### Fact 7 — orphan definition
+
+Not directly exercised this spike (orphan computation is Task 9's scope); nothing observed contradicts the orphan definition.
+
 ## Step 2: CLI profile-scoping check (`code --profile "Blog"`)
 
 Ran the exact sequence against the real "Blog" profile:
 
-```
+```text
 $ code --profile "Blog" --list-extensions
 anthropic.claude-code
 bierner.github-markdown-preview
-... (31 entries total, no hexeditor)
+... (32 entries total, no hexeditor)
 
 $ code --profile "Blog" --install-extension ms-vscode.hexeditor
 Installing extensions...
@@ -130,7 +136,7 @@ Installing extension 'ms-vscode.hexeditor'...
 Extension 'ms-vscode.hexeditor' v1.11.1 was successfully installed.
 
 $ code --profile "Blog" --list-extensions
-... (32 entries, ms-vscode.hexeditor present)
+... (33 entries, ms-vscode.hexeditor present)
 
 $ code --list-extensions          # default profile
 ... (hexeditor NOT present, grep for "hexeditor" returned no match)
@@ -140,7 +146,7 @@ Uninstalling ms-vscode.hexeditor...
 Extension 'ms-vscode.hexeditor' was successfully uninstalled!
 
 $ code --profile "Blog" --list-extensions
-... (31 entries, identical to the pre-install list, hexeditor gone)
+... (32 entries, identical to the pre-install list, hexeditor gone)
 ```
 
 Full raw output is captured in `.superpowers/sdd/task-2-report.md`.
