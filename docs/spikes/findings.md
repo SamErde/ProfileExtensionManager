@@ -292,7 +292,7 @@ Every shape matches Spike A's Facts 1-6 exactly; only the root paths differ (san
 
 - **Fact 1** (`userDataProfiles` schema): the vivified entry is `{location, name}` — a subset of the real install's richer entries (which also carry `icon`/`useDefaultFlags` when created via the full "New Profile" dialog with options). Consistent with Spike A's own note that `icon` is optional and can be absent (there: the built-in "Agents" profile); this is simply another instance of that same optionality, not a schema difference.
 - **Fact 2** (`useDefaultFlags.extensions` inheritance signal): `SpikeTest` has no `useDefaultFlags` at all (implicit non-inheriting default) and its own `extensions.json` with 1 entry — `own=1`, the same three-state model (own-N / own-0 / own-none via inherits) Spike A documented.
-- **Fact 3** (per-profile `extensions.json` entry schema) — raw content of `<dataDir>\User\profiles\384de42c\extensions.json`:
+- **Fact 3** (per-profile `extensions.json` entry schema) — trimmed real content of `<dataDir>\User\profiles\384de42c\extensions.json` (full untrimmed entry also carries `location._sep`/`location.external` and a few more `metadata` id/platform fields, omitted here as noise, exactly as Spike A trimmed its own Fact 3 example):
   ```json
   [{
     "identifier": { "id": "ms-vscode.hexeditor" },
