@@ -181,6 +181,20 @@ describe('InventoryService', () => {
     expect(inv.extensions.find((e) => e.id === 'pub.alpha')?.orphaned).toBe(false);
   });
 
+  it('suppresses orphan reporting when the profile registry is unreadable', async () => {
+    // With storage.json unreadable, named profiles are invisible and their extensions look
+    // disk-only (e.g. pub.hidden) — suppress orphan reporting rather than guess.
+    const io = makeIo(
+      { [PATHS.storageJson]: '{{{', [PATHS.globalExtensionsJson]: defaultManifest },
+      ['pub.alpha-1.0.0', 'pub.hidden-4.0.0'],
+    );
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    expect(inv.warnings[0]?.file).toBe('globalStorage/storage.json');
+    expect(inv.extensions.find((e) => e.id === 'pub.hidden')).toBeUndefined();
+    expect(inv.extensions.find((e) => e.id === 'pub.alpha')?.orphaned).toBe(false);
+    expect(inv.extensions.some((e) => e.orphaned)).toBe(false);
+  });
+
   it('does not report app-scoped-on-disk extensions as orphans when the default manifest is corrupt', async () => {
     // pub.appscoped's isApplicationScoped flag lives in the unreadable default manifest;
     // flagging it orphaned would be a guess, so it is suppressed instead.

@@ -217,8 +217,9 @@ export class InventoryService {
       obsoleteFolderNames,
       displayNames,
       extensionsDir: this.paths.extensionsDir,
-      // Without .obsolete we cannot tell stale folders from orphans — suppress rather than guess.
-      orphanKnowledgeUnreliable: obsoleteError !== undefined,
+      // Without the registry, named profiles (and their manifests) are invisible; without
+      // .obsolete we cannot tell stale folders from orphans. Suppress rather than guess.
+      orphanKnowledgeUnreliable: obsoleteError !== undefined || registryError !== undefined,
     });
     if (obsoleteError) {
       inventory.warnings.push({
