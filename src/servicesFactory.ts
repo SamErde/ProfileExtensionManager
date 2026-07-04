@@ -92,6 +92,19 @@ async function buildServices(context: vscode.ExtensionContext): Promise<Services
 }
 
 let servicesPromise: Promise<Services | { error: string }> | undefined;
+let onFirstBuild: ((context: vscode.ExtensionContext, services: Services) => void) | undefined;
+
+/**
+ * Registers the hook run exactly once, when services are first built successfully. extension.ts
+ * uses it to start the file watchers that drive live refresh (matrix, sidebar dashboard, open
+ * pem-readonly documents) — tied to service construction rather than the showMatrix command, so
+ * the sidebar-only path (welcome view resolve, with openMatrixOnActivityBarClick disabled) gets
+ * watchers too. Lives here as a hook, not a direct call, because servicesFactory importing
+ * extension.ts would be circular. Never invoked on the unsupported-environment error path.
+ */
+export function setOnServicesBuilt(hook: (context: vscode.ExtensionContext, services: Services) => void): void {
+  onFirstBuild = hook;
+}
 
 /**
  * Builds the extension's core services once per process lifetime and caches the result (including
@@ -100,6 +113,12 @@ let servicesPromise: Promise<Services | { error: string }> | undefined;
  * and the sidebar dashboard so both act on the same services without duplicating construction.
  */
 export function getOrBuildServices(context: vscode.ExtensionContext): Promise<Services | { error: string }> {
-  if (!servicesPromise) servicesPromise = buildServices(context);
+  if (!servicesPromise) {
+    servicesPromise = buildServices(context).then((result) => {
+      // The promise is cached, so this then-branch (and thus the hook) runs at most once.
+      if (!('error' in result)) onFirstBuild?.(context, result);
+      return result;
+    });
+  }
   return servicesPromise;
 }

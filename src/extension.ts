@@ -2,13 +2,20 @@ import * as vscode from 'vscode';
 import { MatrixPanel } from './panel/matrixPanel';
 import { registerPemReadOnlyProvider, type PemReadOnlyContentProvider } from './panel/readOnlyProvider';
 import { WelcomeViewProvider } from './panel/welcomeView';
-import { getOrBuildServices } from './servicesFactory';
+import { getOrBuildServices, setOnServicesBuilt } from './servicesFactory';
 
 let welcomeProvider: WelcomeViewProvider | undefined;
 let readOnlyProvider: PemReadOnlyContentProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   readOnlyProvider = registerPemReadOnlyProvider(context);
+
+  // Watchers start with service construction, not with the showMatrix command: the sidebar
+  // dashboard and open pem-readonly documents must live-update even when the user disables
+  // openMatrixOnActivityBarClick and never opens the matrix. Fires once, on the first successful
+  // build, from whichever caller (showMatrix or the welcome view) builds services first; the
+  // unsupported-environment error path never fires it.
+  setOnServicesBuilt((ctx, services) => watchForChanges(ctx, services.watched));
 
   welcomeProvider = new WelcomeViewProvider(context);
   context.subscriptions.push(
@@ -28,7 +35,6 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       MatrixPanel.show(context, setup);
       await MatrixPanel.current?.refresh();
-      watchForChanges(context, setup.watched);
     }),
   );
 }
