@@ -63,6 +63,8 @@ app.append(toolbar, contentEl);
 // ---------------------------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent<HostToWebview>) => {
+  if (event.origin !== window.location.origin) return;
+
   const m = event.data;
   switch (m.type) {
     case 'inventory':
