@@ -16,6 +16,10 @@ export interface ManifestEntry {
   version: string;
   relativeLocation: string;
   isApplicationScoped: boolean;
+  /** From metadata.publisherDisplayName, when present and string-typed. */
+  publisherDisplayName?: string;
+  /** From metadata.installedTimestamp, when present and number-typed. */
+  installedTimestamp?: number;
 }
 
 function parseJson(text: string, what: string): unknown {
@@ -58,14 +62,19 @@ export function parseExtensionsManifest(text: string): ManifestEntry[] {
         : undefined;
     if (typeof id !== 'string' || typeof e['version'] !== 'string') continue;
     const metadata = e['metadata'];
-    const isApplicationScoped =
-      typeof metadata === 'object' && metadata !== null &&
-      (metadata as Record<string, unknown>)['isApplicationScoped'] === true;
+    const metaObj = typeof metadata === 'object' && metadata !== null ? (metadata as Record<string, unknown>) : undefined;
+    const isApplicationScoped = metaObj?.['isApplicationScoped'] === true;
+    const publisherDisplayName =
+      typeof metaObj?.['publisherDisplayName'] === 'string' ? metaObj['publisherDisplayName'] : undefined;
+    const installedTimestamp =
+      typeof metaObj?.['installedTimestamp'] === 'number' ? metaObj['installedTimestamp'] : undefined;
     entries.push({
       id: id.toLowerCase(),
       version: e['version'],
       relativeLocation: typeof e['relativeLocation'] === 'string' ? e['relativeLocation'] : '',
       isApplicationScoped,
+      ...(publisherDisplayName !== undefined ? { publisherDisplayName } : {}),
+      ...(installedTimestamp !== undefined ? { installedTimestamp } : {}),
     });
   }
   return entries;

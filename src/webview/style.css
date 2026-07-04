@@ -38,19 +38,13 @@ th { position: sticky; top: 0; background: var(--vscode-editor-background); }
 }
 .version { opacity: 0.6; font-size: 0.85em; }
 .name.orphaned { opacity: 0.6; text-decoration: line-through; }
+.name[tabindex] { cursor: pointer; border-radius: 2px; }
+.name[tabindex]:hover { text-decoration: underline; }
+.name[tabindex]:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .badge {
   margin-left: 0.5rem; font-size: 0.7em; padding: 0.1rem 0.4rem; border-radius: 0.5rem; border: none; cursor: pointer;
   background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
 }
-.row-actions { margin-left: 0.5rem; display: inline-flex; gap: 0.15rem; }
-.row-actions button {
-  font-size: 0.7em; padding: 0.1rem 0.4rem; border-radius: 0.5rem; border: none; cursor: pointer;
-  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
-  opacity: 0; transition: opacity 0.1s;
-}
-tr:hover .row-actions button, .row-actions button:focus { opacity: 1; }
-.row-actions button:disabled { cursor: not-allowed; }
-tr:hover .row-actions button:disabled { opacity: 0.35; }
 .inherited { opacity: 0.55; }
 .spinner { animation: spin 1s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -60,3 +54,44 @@ tr:hover .row-actions button:disabled { opacity: 0.35; }
   padding: 0.4rem 0.8rem; margin-bottom: 0.5rem;
 }
 .orphan-row { display: block; padding: 0.25rem 0; }
+
+/* Extension detail hover card — one reusable element, positioned via JS (left/top) on show. */
+.ext-card {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  background: var(--vscode-editorHoverWidget-background);
+  color: var(--vscode-editorHoverWidget-foreground);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  border-radius: 3px;
+  padding: 0.6rem 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.ext-card[hidden] { display: none; }
+.ext-card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+.ext-card-header .ext-icon { width: 24px; height: 24px; }
+.ext-card-name {
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ext-card-name:hover, .ext-card-name:focus { text-decoration: underline; }
+.ext-card-name:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+.ext-card-publisher { opacity: 0.8; font-size: 0.9em; margin-bottom: 0.35rem; }
+.ext-card-description {
+  font-size: 0.9em;
+  margin-bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ext-card-meta { opacity: 0.7; font-size: 0.8em; margin-bottom: 0.5rem; }
+.ext-card-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.ext-card-actions button {
+  font-size: 0.8em; padding: 0.2rem 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer;
+  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+}
+.ext-card-actions button:disabled { cursor: not-allowed; opacity: 0.5; }
+.ext-card-actions button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }

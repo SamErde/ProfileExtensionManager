@@ -162,12 +162,22 @@ export class WelcomeViewProvider implements vscode.WebviewViewProvider {
   button:hover { background: var(--vscode-button-hoverBackground); }
   h2 { font-size: 0.95em; margin: 1rem 0 0.25rem; }
   #profiles { list-style: none; margin: 0; padding: 0; }
-  #profiles li { margin: 0.2rem 0; }
+  #profiles li { margin: 0 0 8px; }
+  #profiles li:last-child { margin-bottom: 0; }
   a { color: var(--vscode-textLink-foreground); text-decoration: none; cursor: pointer; }
   a:hover, a:focus { text-decoration: underline; }
-  .edit-icon { margin-left: 0.35rem; }
+  .profile-line1 { display: flex; align-items: center; gap: 0.3rem; }
+  .profile-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .edit-icon { margin-left: 0.35rem; flex-shrink: 0; }
   .edit-icon:focus { outline: 1px solid var(--vscode-focusBorder); }
-  .counts, .inherits { opacity: 0.75; font-size: 0.9em; margin-left: 0.3rem; }
+  .inherits { opacity: 0.75; font-size: 0.9em; margin-left: 0.3rem; flex-shrink: 0; }
+  .profile-counts { margin-top: 0.15rem; font-size: 0.85em; color: var(--vscode-descriptionForeground); }
   #extra p { margin: 0.4rem 0; }
   .warning-line { opacity: 0.9; }
 </style>

@@ -20,6 +20,10 @@ export interface ComposeInput {
   displayNames: Map<string, string>;
   /** extension id -> absolute icon fsPath, from the first disk version folder that has one */
   iconFsPaths?: Map<string, string>;
+  /** extension id -> package.json description, same folder as displayNames */
+  descriptions?: Map<string, string>;
+  /** extension id -> package.json publisher, same folder as displayNames */
+  publishers?: Map<string, string>;
   extensionsDir: string;
   /**
    * Set when orphan knowledge is unreliable for reasons compose cannot see itself
@@ -59,11 +63,27 @@ export function composeInventory(input: ComposeInput): Inventory {
     set.add(profileId);
   };
 
+  // Metadata extras (publisherDisplayName/installedTimestamp) come from the first manifest entry
+  // for a given id that actually carries each field — default manifest first, then profile
+  // manifests in registry order — tracked independently per field since not every entry for an
+  // id necessarily carries both.
+  const publisherDisplayNames = new Map<string, string>();
+  const installedTimestamps = new Map<string, number>();
+  const noteExtras = (e: ManifestEntry) => {
+    if (e.publisherDisplayName !== undefined && !publisherDisplayNames.has(e.id)) {
+      publisherDisplayNames.set(e.id, e.publisherDisplayName);
+    }
+    if (e.installedTimestamp !== undefined && !installedTimestamps.has(e.id)) {
+      installedTimestamps.set(e.id, e.installedTimestamp);
+    }
+  };
+
   const inheritingIds = profiles.filter((p) => p.inheritsDefaultExtensions).map((p) => p.id);
   for (const e of defaultEntries) {
     add(e.id, 'default');
     for (const pid of inheritingIds) add(e.id, pid);
     if (e.isApplicationScoped) appScoped.add(e.id);
+    noteExtras(e);
   }
 
   for (const p of input.rawProfiles) {
@@ -80,6 +100,7 @@ export function composeInventory(input: ComposeInput): Inventory {
     for (const e of manifest ?? []) {
       add(e.id, p.location);
       if (e.isApplicationScoped) appScoped.add(e.id);
+      noteExtras(e);
     }
   }
 
@@ -119,6 +140,10 @@ export function composeInventory(input: ComposeInput): Inventory {
       const installedIn = profiles.map((p) => p.id).filter((pid) => membership.get(id)?.has(pid));
       const isAppScoped = appScoped.has(id);
       const iconFsPath = input.iconFsPaths?.get(id);
+      const description = input.descriptions?.get(id);
+      const publisher = input.publishers?.get(id);
+      const publisherDisplayName = publisherDisplayNames.get(id);
+      const installedTimestampMs = installedTimestamps.get(id);
       return {
         id,
         displayName: input.displayNames.get(id) ?? id,
@@ -127,6 +152,10 @@ export function composeInventory(input: ComposeInput): Inventory {
         installedIn,
         orphaned: installedIn.length === 0 && !isAppScoped,
         ...(iconFsPath !== undefined ? { iconFsPath } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(publisher !== undefined ? { publisher } : {}),
+        ...(publisherDisplayName !== undefined ? { publisherDisplayName } : {}),
+        ...(installedTimestampMs !== undefined ? { installedTimestampMs } : {}),
       };
     });
   extensions.sort((a, b) => a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase()));
@@ -246,8 +275,11 @@ export interface InventoryIo {
    */
   readFile(p: string): Promise<string | undefined | Error>;
   listDirs(p: string): Promise<string[]>;
-  /** best-effort displayName/icon from <folder>/package.json; undefined when unreadable */
-  readPackageMeta(extFolderPath: string): Promise<{ displayName?: string; icon?: string } | undefined>;
+  /** best-effort displayName/icon/description/publisher from <folder>/package.json; undefined
+   *  when unreadable */
+  readPackageMeta(
+    extFolderPath: string,
+  ): Promise<{ displayName?: string; icon?: string; description?: string; publisher?: string } | undefined>;
 }
 
 export class InventoryService {
@@ -314,12 +346,16 @@ export class InventoryService {
 
     const displayNames = new Map<string, string>();
     const iconFsPaths = new Map<string, string>();
+    const descriptions = new Map<string, string>();
+    const publishers = new Map<string, string>();
     for (const folderName of diskFolders) {
       const parsed = parseExtensionFolderName(folderName);
       if (!parsed) continue;
       const needDisplayName = !displayNames.has(parsed.id);
       const needIcon = !iconFsPaths.has(parsed.id);
-      if (!needDisplayName && !needIcon) continue;
+      const needDescription = !descriptions.has(parsed.id);
+      const needPublisher = !publishers.has(parsed.id);
+      if (!needDisplayName && !needIcon && !needDescription && !needPublisher) continue;
       const meta = await this.io.readPackageMeta(joinP(this.paths.extensionsDir, folderName));
       if (!meta) continue;
       if (needDisplayName && meta.displayName) displayNames.set(parsed.id, meta.displayName);
@@ -327,6 +363,8 @@ export class InventoryService {
         const raw = `${this.paths.extensionsDir}/${folderName}/${meta.icon}`;
         iconFsPaths.set(parsed.id, raw.replaceAll('/', sep(this.paths.extensionsDir)));
       }
+      if (needDescription && meta.description) descriptions.set(parsed.id, meta.description);
+      if (needPublisher && meta.publisher) publishers.set(parsed.id, meta.publisher);
     }
 
     const inventory = composeInventory({
@@ -337,6 +375,8 @@ export class InventoryService {
       obsoleteFolderNames,
       displayNames,
       iconFsPaths,
+      descriptions,
+      publishers,
       extensionsDir: this.paths.extensionsDir,
       // Without the registry, named profiles (and their manifests) are invisible; without
       // .obsolete we cannot tell stale folders from orphans. Suppress rather than guess.

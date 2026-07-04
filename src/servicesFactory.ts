@@ -68,11 +68,16 @@ async function buildServices(context: vscode.ExtensionContext): Promise<Services
         const pkg = JSON.parse(await fsp.readFile(path.join(folder, 'package.json'), 'utf8')) as {
           displayName?: unknown;
           icon?: unknown;
+          description?: unknown;
+          publisher?: unknown;
         };
         const displayName =
           typeof pkg.displayName === 'string' && !pkg.displayName.startsWith('%') ? pkg.displayName : undefined;
         const icon = typeof pkg.icon === 'string' ? pkg.icon : undefined;
-        return { displayName, icon };
+        const description =
+          typeof pkg.description === 'string' && !pkg.description.startsWith('%') ? pkg.description : undefined;
+        const publisher = typeof pkg.publisher === 'string' ? pkg.publisher : undefined;
+        return { displayName, icon, description, publisher };
       } catch {
         return undefined;
       }

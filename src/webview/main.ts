@@ -1,4 +1,4 @@
-import type { HostToWebview, Inventory, OrphanInfo, WebviewToHost } from '../core/types';
+import type { ExtensionRecord, HostToWebview, Inventory, OrphanInfo, WebviewToHost } from '../core/types';
 import { buildViewModel, formatBytes, type Chip } from './render';
 
 declare function acquireVsCodeApi(): { postMessage(m: WebviewToHost): void };
@@ -61,6 +61,176 @@ toolbar.append(refreshButton);
 
 const contentEl = el('div', 'content');
 app.append(toolbar, contentEl);
+// ---------------------------------------------------------------------------------------------
+
+// --- Extension detail hover card ------------------------------------------------------------
+// A single reusable element (not rebuilt per row) shown on hover (after a short delay) or
+// immediately on keyboard focus of an extension's name. It carries the per-row bulk actions that
+// used to live inline in the row, plus read-only detail (publisher, description, install
+// metadata) sourced directly from the live `inventory` — the card is presentation only; the
+// business rules (which targets a bulk action affects, when it's disabled) stay host-side.
+const card = el('div', 'ext-card');
+card.hidden = true;
+card.setAttribute('role', 'group');
+document.body.append(card);
+
+let cardOwnerExtId: string | undefined;
+let showTimer: ReturnType<typeof setTimeout> | undefined;
+let hideTimer: ReturnType<typeof setTimeout> | undefined;
+
+function clearShowTimer(): void {
+  if (showTimer !== undefined) {
+    clearTimeout(showTimer);
+    showTimer = undefined;
+  }
+}
+
+function cancelHide(): void {
+  if (hideTimer !== undefined) {
+    clearTimeout(hideTimer);
+    hideTimer = undefined;
+  }
+}
+
+/** Short delay so moving the pointer from the name to the card (they're adjacent, no dead gap)
+ * doesn't flicker-close it — cancelled by mouseenter on either element. */
+function scheduleHideCard(): void {
+  cancelHide();
+  hideTimer = setTimeout(hideCard, 100);
+}
+
+function scheduleShowCard(extId: string, trigger: HTMLElement, delayMs: number): void {
+  clearShowTimer();
+  cancelHide();
+  if (delayMs <= 0) {
+    showCard(extId, trigger);
+    return;
+  }
+  showTimer = setTimeout(() => showCard(extId, trigger), delayMs);
+}
+
+function hideCard(): void {
+  clearShowTimer();
+  cancelHide();
+  if (card.hidden) return;
+  card.hidden = true;
+  card.replaceChildren();
+  cardOwnerExtId = undefined;
+}
+
+function showCard(extId: string, trigger: HTMLElement): void {
+  clearShowTimer();
+  cancelHide();
+  if (!inventory) return;
+  const ext = inventory.extensions.find((e) => e.id === extId);
+  if (!ext) return;
+  cardOwnerExtId = extId;
+  buildCardContent(ext);
+  card.hidden = false;
+  positionCard(trigger);
+}
+
+function buildCardContent(ext: ExtensionRecord): void {
+  card.replaceChildren();
+
+  const header = el('div', 'ext-card-header');
+  header.append(extIcon(ext.id, ext.displayName));
+  const nameLink = el('a', 'ext-card-name', ext.displayName) as HTMLAnchorElement;
+  nameLink.href = '#';
+  nameLink.tabIndex = 0;
+  const openPage = (e: Event) => {
+    e.preventDefault();
+    post({ type: 'openExtensionPage', extId: ext.id });
+  };
+  nameLink.addEventListener('click', openPage);
+  nameLink.addEventListener('keydown', (e) => {
+    const key = (e as KeyboardEvent).key;
+    if (key === 'Enter' || key === ' ') openPage(e);
+  });
+  header.append(nameLink);
+  card.append(header);
+
+  const publisherText = ext.publisherDisplayName ?? ext.publisher;
+  if (publisherText) card.append(el('div', 'ext-card-publisher', publisherText));
+
+  if (ext.description) card.append(el('div', 'ext-card-description', ext.description));
+
+  const latestVersion = ext.versions[ext.versions.length - 1]?.version;
+  if (latestVersion) {
+    const metaParts = [`v${latestVersion}`];
+    // "installed" is the local install time from offline metadata, not a marketplace publish date.
+    if (ext.installedTimestampMs !== undefined) {
+      metaParts.push(`installed ${new Date(ext.installedTimestampMs).toLocaleDateString()}`);
+    }
+    card.append(el('div', 'ext-card-meta', metaParts.join(' · ')));
+  }
+
+  const rowPending = [...pending].some((key) => key.startsWith(`${ext.id}|`));
+  const actions = el('div', 'ext-card-actions');
+  if (!ext.applyToAllProfiles) {
+    const installAllBtn = el('button', 'row-action', 'Install in all profiles') as HTMLButtonElement;
+    installAllBtn.title =
+      "Install in every profile via the VS Code CLI. Unlike VS Code's native 'apply to all profiles' flag, future new profiles will not inherit it.";
+    installAllBtn.disabled = rowPending;
+    installAllBtn.addEventListener('click', () => post({ type: 'installEverywhere', extId: ext.id }));
+    actions.append(installAllBtn);
+
+    const removeAllBtn = el('button', 'row-action', 'Remove from all profiles') as HTMLButtonElement;
+    removeAllBtn.title = 'Uninstall from every profile where it is directly installed.';
+    removeAllBtn.disabled = rowPending;
+    removeAllBtn.addEventListener('click', () => post({ type: 'removeEverywhere', extId: ext.id }));
+    actions.append(removeAllBtn);
+  }
+  const applyAllBtn = el('button', 'row-action', 'Apply to all profiles…') as HTMLButtonElement;
+  applyAllBtn.title =
+    "Opens the Extensions view where you can toggle VS Code's native 'Apply Extension to all Profiles' option — VS Code provides no API for extensions to toggle it directly.";
+  applyAllBtn.disabled = rowPending;
+  applyAllBtn.addEventListener('click', () => post({ type: 'toggleAllProfiles', extId: ext.id }));
+  actions.append(applyAllBtn);
+  card.append(actions);
+}
+
+/** Positions the card near `trigger`, flipping above/left when it would overflow the viewport. */
+function positionCard(trigger: HTMLElement): void {
+  const margin = 6;
+  const rect = trigger.getBoundingClientRect();
+  card.style.left = `${margin}px`;
+  card.style.top = `${margin}px`;
+  const cardRect = card.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let left = rect.left;
+  if (left + cardRect.width > vw - margin) left = rect.right - cardRect.width; // flip left
+  left = Math.min(Math.max(margin, left), Math.max(margin, vw - cardRect.width - margin));
+
+  let top = rect.bottom + margin;
+  if (top + cardRect.height > vh - margin) top = rect.top - cardRect.height - margin; // flip above
+  top = Math.max(margin, top);
+
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+}
+
+card.addEventListener('mouseenter', cancelHide);
+card.addEventListener('mouseleave', scheduleHideCard);
+// The card must never trap focus: tabbing (or otherwise moving focus) to anything outside it —
+// including back to the name that opened it — closes it.
+card.addEventListener('focusout', (e) => {
+  const related = (e as FocusEvent).relatedTarget;
+  if (related instanceof Node && card.contains(related)) return;
+  hideCard();
+});
+document.addEventListener('keydown', (e) => {
+  if ((e as KeyboardEvent).key === 'Escape' && !card.hidden) hideCard();
+});
+window.addEventListener(
+  'scroll',
+  () => {
+    if (!card.hidden) hideCard();
+  },
+  { capture: true },
+);
 // ---------------------------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent<HostToWebview>) => {
@@ -135,6 +305,10 @@ function updateOrphanButton(): void {
 }
 
 function renderContent(): void {
+  // Any open hover card references DOM elements this rebuild is about to discard (and, on a
+  // fresh 'inventory'/'pending' push, its content may now be stale) — close it rather than try
+  // to re-anchor it to a new element.
+  hideCard();
   contentEl.replaceChildren();
   if (!inventory) {
     contentEl.append(el('div', '', 'Loading…'));
@@ -165,8 +339,38 @@ function renderContent(): void {
     const tr = document.createElement('tr');
     const name = el('td', 'ext-col');
     name.append(extIcon(row.extId, row.displayName));
-    name.append(el('span', row.orphaned ? 'name orphaned' : 'name', row.displayName));
-    name.append(el('span', 'version', row.version ? ` ${row.version}` : ''));
+
+    // The name itself is the hover-card trigger: hover (after a short delay) or keyboard focus
+    // (immediate) opens the card with detail + the row's bulk actions.
+    const nameTrigger = el('span', row.orphaned ? 'name orphaned' : 'name', row.displayName);
+    nameTrigger.tabIndex = 0;
+    nameTrigger.setAttribute('role', 'button');
+    nameTrigger.setAttribute('aria-haspopup', 'true');
+    nameTrigger.addEventListener('mouseenter', () => scheduleShowCard(row.extId, nameTrigger, 250));
+    nameTrigger.addEventListener('mouseleave', () => {
+      clearShowTimer();
+      scheduleHideCard();
+    });
+    nameTrigger.addEventListener('focus', () => scheduleShowCard(row.extId, nameTrigger, 0));
+    nameTrigger.addEventListener('blur', (e) => {
+      const related = (e as FocusEvent).relatedTarget;
+      if (related instanceof Node && card.contains(related)) return;
+      hideCard();
+    });
+    // Redirect a forward Tab from the name into the open card instead of the next table cell —
+    // otherwise the card's action buttons would be unreachable by keyboard even while visible.
+    nameTrigger.addEventListener('keydown', (e) => {
+      const ke = e as KeyboardEvent;
+      if (ke.key === 'Tab' && !ke.shiftKey && cardOwnerExtId === row.extId) {
+        const firstFocusable = card.querySelector<HTMLElement>('a, button');
+        if (firstFocusable) {
+          ke.preventDefault();
+          firstFocusable.focus();
+        }
+      }
+    });
+    name.append(nameTrigger);
+
     if (row.applyToAllProfiles) {
       const badge = el('button', 'badge', 'ALL');
       badge.title = toggleSupported ? 'Applied to all profiles — click to toggle' : 'Applied to all profiles — click for how to change';
@@ -174,35 +378,6 @@ function renderContent(): void {
       name.append(badge);
     }
 
-    const rowPending = [...pending].some((key) => key.startsWith(`${row.extId}|`));
-    const actions = el('span', 'row-actions');
-
-    // App-scoped rows get no bulk install/remove buttons: VS Code's native flag already applies
-    // them everywhere, and the host-side target helpers return [] for them by design. Only the
-    // Apply… guide button remains — the correct affordance for managing (or unflagging) the flag.
-    if (!row.applyToAllProfiles) {
-      const installAllBtn = el('button', 'row-action', 'Install') as HTMLButtonElement;
-      installAllBtn.title =
-        "Install in every profile via the VS Code CLI. Unlike VS Code's native 'apply to all profiles' flag, future new profiles will not inherit it.";
-      installAllBtn.disabled = rowPending;
-      installAllBtn.addEventListener('click', () => post({ type: 'installEverywhere', extId: row.extId }));
-      actions.append(installAllBtn);
-
-      const removeAllBtn = el('button', 'row-action', 'Remove') as HTMLButtonElement;
-      removeAllBtn.title = 'Uninstall from every profile where it is directly installed.';
-      removeAllBtn.disabled = rowPending;
-      removeAllBtn.addEventListener('click', () => post({ type: 'removeEverywhere', extId: row.extId }));
-      actions.append(removeAllBtn);
-    }
-
-    const applyAllBtn = el('button', 'row-action', 'Apply…') as HTMLButtonElement;
-    applyAllBtn.title =
-      "Opens the Extensions view where you can toggle VS Code's native 'Apply Extension to all Profiles' option — VS Code provides no API for extensions to toggle it directly.";
-    applyAllBtn.disabled = rowPending;
-    applyAllBtn.addEventListener('click', () => post({ type: 'toggleAllProfiles', extId: row.extId }));
-    actions.append(applyAllBtn);
-
-    name.append(actions);
     tr.append(name);
     for (const cell of row.cells) {
       const td = el('td', 'cell');

@@ -55,16 +55,20 @@ function render(): void {
 
   for (const p of state.profiles) {
     const li = document.createElement('li');
+    const line1 = el('div', 'profile-line1');
     if (p.inheritsDefaultExtensions) {
-      li.append(el('span', '', p.name), el('span', 'inherits', '(inherits Default)'));
+      const nameSpan = el('span', 'profile-name', p.name);
+      nameSpan.title = p.name;
+      line1.append(nameSpan, el('span', 'inherits', '(inherits Default)'));
     } else {
-      const link = el('a', '', p.name) as HTMLAnchorElement;
+      const link = el('a', 'profile-name', p.name) as HTMLAnchorElement;
       link.href = '#';
+      link.title = p.name;
       link.addEventListener('click', (e) => {
         e.preventDefault();
         vscode.postMessage({ type: 'openProfileReadOnly', profileId: p.id });
       });
-      li.append(link);
+      line1.append(link);
 
       const edit = el('a', 'edit-icon', '✎') as HTMLAnchorElement;
       edit.href = '#';
@@ -81,9 +85,9 @@ function render(): void {
         const key = (e as KeyboardEvent).key;
         if (key === 'Enter' || key === ' ') openEdit(e);
       });
-      li.append(edit);
+      line1.append(edit);
     }
-    li.append(el('span', 'counts', `(${p.direct} direct + ${p.shared} shared)`));
+    li.append(line1, el('div', 'profile-counts', `${p.direct} direct + ${p.shared} shared`));
     list.append(li);
   }
 

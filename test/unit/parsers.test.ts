@@ -36,11 +36,24 @@ describe('parseProfileRegistry', () => {
 });
 
 describe('parseExtensionsManifest', () => {
-  it('extracts id (lowercased), version, relativeLocation, app scope', () => {
+  it('extracts id (lowercased), version, relativeLocation, app scope, and metadata extras', () => {
     const entries = parseExtensionsManifest(fixture('extensions-global.json'));
     expect(entries).toEqual([
-      { id: 'johnpapa.vscode-peacock', version: '4.2.2', relativeLocation: 'johnpapa.vscode-peacock-4.2.2', isApplicationScoped: true },
-      { id: 'esbenp.prettier-vscode', version: '11.0.0', relativeLocation: 'esbenp.prettier-vscode-11.0.0', isApplicationScoped: false },
+      {
+        id: 'johnpapa.vscode-peacock',
+        version: '4.2.2',
+        relativeLocation: 'johnpapa.vscode-peacock-4.2.2',
+        isApplicationScoped: true,
+        publisherDisplayName: 'John Papa',
+        installedTimestamp: 1771712605225,
+      },
+      {
+        id: 'esbenp.prettier-vscode',
+        version: '11.0.0',
+        relativeLocation: 'esbenp.prettier-vscode-11.0.0',
+        isApplicationScoped: false,
+        installedTimestamp: 1771712605000,
+      },
     ]);
   });
 
@@ -51,6 +64,19 @@ describe('parseExtensionsManifest', () => {
 
   it('throws ParseError on non-array JSON', () => {
     expect(() => parseExtensionsManifest('{"a":1}')).toThrow(ParseError);
+  });
+
+  it('omits publisherDisplayName/installedTimestamp when metadata is absent', () => {
+    const text = '[{"identifier": {"id": "pub.ext"}, "version": "1.0.0", "relativeLocation": "pub.ext-1.0.0"}]';
+    const [onlyEntry] = parseExtensionsManifest(text);
+    expect(onlyEntry).toEqual({
+      id: 'pub.ext',
+      version: '1.0.0',
+      relativeLocation: 'pub.ext-1.0.0',
+      isApplicationScoped: false,
+    });
+    expect(onlyEntry).not.toHaveProperty('publisherDisplayName');
+    expect(onlyEntry).not.toHaveProperty('installedTimestamp');
   });
 });
 

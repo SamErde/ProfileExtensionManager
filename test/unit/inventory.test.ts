@@ -92,6 +92,50 @@ describe('composeInventory', () => {
     expect(inv.extensions.find((e) => e.id === 'pub.default-only')?.displayName).toBe('pub.default-only');
   });
 
+  it('adds description/publisher from the descriptions/publishers maps, leaving other extensions without them', () => {
+    const input = baseInput();
+    const inv = composeInventory({
+      ...input,
+      descriptions: new Map([['pub.everywhere', 'Does everything.']]),
+      publishers: new Map([['pub.everywhere', 'pub']]),
+    });
+    const everywhere = inv.extensions.find((e) => e.id === 'pub.everywhere');
+    expect(everywhere?.description).toBe('Does everything.');
+    expect(everywhere?.publisher).toBe('pub');
+    const other = inv.extensions.find((e) => e.id === 'pub.default-only');
+    expect(other?.description).toBeUndefined();
+    expect(other?.publisher).toBeUndefined();
+  });
+
+  it('takes publisherDisplayName/installedTimestamp from the first manifest entry that carries each field', () => {
+    const input = baseInput();
+    input.defaultManifest = [
+      { ...entry('pub.everywhere', '1.0.0', true), installedTimestamp: 111 },
+      entry('pub.default-only', '2.0.0'),
+    ];
+    input.profileManifests.set('aaa', [
+      { ...entry('pub.work-only', '3.0.0'), publisherDisplayName: 'Work Pub', installedTimestamp: 222 },
+    ]);
+    const inv = composeInventory(input);
+    const everywhere = inv.extensions.find((e) => e.id === 'pub.everywhere');
+    expect(everywhere?.installedTimestampMs).toBe(111);
+    expect(everywhere?.publisherDisplayName).toBeUndefined();
+    const workOnly = inv.extensions.find((e) => e.id === 'pub.work-only');
+    expect(workOnly?.publisherDisplayName).toBe('Work Pub');
+    expect(workOnly?.installedTimestampMs).toBe(222);
+  });
+
+  it('prefers the default manifest entry over a profile manifest entry for the same id', () => {
+    const input = baseInput();
+    input.rawProfiles = [{ location: 'aaa', name: 'Work', inheritsDefaultExtensions: false }];
+    input.defaultManifest = [{ ...entry('pub.shared', '1.0.0'), publisherDisplayName: 'Default Wins' }];
+    input.profileManifests = new Map([
+      ['aaa', [{ ...entry('pub.shared', '1.0.0'), publisherDisplayName: 'Profile Loses' }]],
+    ]);
+    const inv = composeInventory(input);
+    expect(inv.extensions.find((e) => e.id === 'pub.shared')?.publisherDisplayName).toBe('Default Wins');
+  });
+
   it('sorts extensions by displayName, case-insensitive', () => {
     const inv = composeInventory(baseInput());
     const names = inv.extensions.map((e) => e.displayName.toLowerCase());
@@ -172,6 +216,25 @@ describe('InventoryService', () => {
     // No icon declared for beta — the field is absent, not an empty string.
     expect(beta?.iconFsPath).toBeUndefined();
     expect(inv.extensions.some((e) => e.orphaned)).toBe(false);
+  });
+
+  it('wires description and publisher from readPackageMeta through to the extension record', async () => {
+    const io: InventoryIo = {
+      readFile: (p) =>
+        Promise.resolve(
+          ({ [PATHS.storageJson]: storageJson, [PATHS.globalExtensionsJson]: defaultManifest } as Record<
+            string,
+            string
+          >)[p],
+        ),
+      listDirs: () => Promise.resolve(['pub.alpha-1.0.0']),
+      readPackageMeta: () =>
+        Promise.resolve({ displayName: 'Alpha!', description: 'Does alpha things.', publisher: 'pub' }),
+    };
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    const alpha = inv.extensions.find((e) => e.id === 'pub.alpha');
+    expect(alpha?.description).toBe('Does alpha things.');
+    expect(alpha?.publisher).toBe('pub');
   });
 
   it('rejects icon paths with .. segments or a drive letter — record gets no iconFsPath', async () => {

@@ -13,7 +13,6 @@ export interface CellVm {
 export interface RowVm {
   extId: string;
   displayName: string;
-  version: string;
   applyToAllProfiles: boolean;
   orphaned: boolean;
   cells: CellVm[];
@@ -39,7 +38,6 @@ export function buildViewModel(inv: Inventory, state: { filter: string; chip: Ch
     .map((e) => ({
       extId: e.id,
       displayName: e.displayName,
-      version: e.versions[e.versions.length - 1]?.version ?? '',
       applyToAllProfiles: e.applyToAllProfiles,
       orphaned: e.orphaned,
       cells: inv.profiles.map((p) => ({

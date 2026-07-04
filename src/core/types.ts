@@ -22,6 +22,17 @@ export interface ExtensionRecord {
   orphaned: boolean; // derived: installedIn.length === 0 && !applyToAllProfiles
   /** Absolute path to the icon file, composed from the first disk version folder that has one. */
   iconFsPath?: string;
+  /** From package.json `description`, same folder as displayName. */
+  description?: string;
+  /** From package.json `publisher`, same folder as displayName. */
+  publisher?: string;
+  /** From the first manifest entry for this id (default manifest first, then profile manifests)
+   *  that carries it — metadata.publisherDisplayName. */
+  publisherDisplayName?: string;
+  /** From the first manifest entry for this id (default manifest first, then profile manifests)
+   *  that carries it — metadata.installedTimestamp. This is the local install time, not a
+   *  marketplace publish date; offline data only. */
+  installedTimestampMs?: number;
 }
 
 export interface ParseWarning {
@@ -60,6 +71,7 @@ export type WebviewToHost =
   | { type: 'toggleAllProfiles'; extId: string }
   | { type: 'installEverywhere'; extId: string }
   | { type: 'removeEverywhere'; extId: string }
+  | { type: 'openExtensionPage'; extId: string }
   | { type: 'requestOrphans' }
   | { type: 'cleanup'; folderNames: string[] };
 

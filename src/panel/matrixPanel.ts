@@ -146,6 +146,9 @@ export class MatrixPanel {
       case 'removeEverywhere':
         await this.guard(() => this.removeEverywhere(services, m.extId));
         return;
+      case 'openExtensionPage':
+        await this.guard(() => this.openExtensionPage(m.extId));
+        return;
       case 'requestOrphans':
         await this.guard(() => this.postOrphans(services));
         return;
@@ -300,6 +303,13 @@ export class MatrixPanel {
       await services.mutations.uninstall(extId, profileName);
     }
     await this.refresh();
+  }
+
+  /** Opens the extension's page in VS Code's native Extensions view — used by the hover card's
+   *  name link. Offline-only: this asks the workbench to open its own extension details page for
+   *  an already-installed extension, no marketplace call is made by this extension itself. */
+  private async openExtensionPage(extId: string): Promise<void> {
+    await vscode.commands.executeCommand('extension.open', extId);
   }
 
   private async cleanup(services: Services, folderNames: string[]): Promise<void> {
