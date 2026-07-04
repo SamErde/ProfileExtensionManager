@@ -9,6 +9,9 @@ let orphanSizeText = '';
 document.getElementById('open')?.addEventListener('click', () => vscode.postMessage({ type: 'openMatrix' }));
 
 window.addEventListener('message', (event: MessageEvent<HostToWelcome>) => {
+  // Accept only messages from this webview context.
+  if (event.source !== window) return;
+
   const m = event.data;
   switch (m.type) {
     case 'state':
