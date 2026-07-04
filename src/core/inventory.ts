@@ -179,6 +179,47 @@ export function removeEverywhereTargets(inventory: Inventory, extId: string): Pr
   return inventory.profiles.filter((p) => direct.has(p.id));
 }
 
+/**
+ * Per-profile "N direct + M shared" counts for the sidebar dashboard.
+ * - direct: extensions from the profile's own manifest — i.e. non-app-scoped extensions whose
+ *   `installedIn` includes this profile id. The default profile's own manifest entries land in
+ *   `installedIn` under the 'default' id; a non-inheriting named profile's own entries land under
+ *   its own id (see composeInventory). Inheriting profiles own no manifest, so direct is always 0.
+ * - shared: app-scoped extensions, which composeInventory propagates into every profile's
+ *   `installedIn` regardless of manifest ownership — "shared" here means "not from this profile's
+ *   own file". Inheriting profiles additionally share the default profile's direct extensions
+ *   (the ones they inherit), so their shared count adds the default profile's direct count.
+ */
+export function profileExtensionCounts(inventory: Inventory): Map<string, { direct: number; shared: number }> {
+  const directCount = (profileId: string): number =>
+    inventory.extensions.filter((e) => !e.applyToAllProfiles && e.installedIn.includes(profileId)).length;
+  const appScopedCount = inventory.extensions.filter((e) => e.applyToAllProfiles).length;
+  const defaultDirect = directCount('default');
+
+  const result = new Map<string, { direct: number; shared: number }>();
+  for (const p of inventory.profiles) {
+    result.set(
+      p.id,
+      p.inheritsDefaultExtensions
+        ? { direct: 0, shared: appScopedCount + defaultDirect }
+        : { direct: directCount(p.id), shared: appScopedCount },
+    );
+  }
+  return result;
+}
+
+/**
+ * Absolute fsPath of a profile's own extensions.json — the global manifest for the default
+ * profile, `<profilesDir>/<location>/extensions.json` for a named one. Undefined for a profile
+ * that inherits the default profile's extensions: it has no file of its own to open or edit.
+ */
+export function profileManifestPath(paths: ResolvedPaths, profile: Profile): string | undefined {
+  if (profile.inheritsDefaultExtensions) return undefined;
+  if (profile.isDefault) return paths.globalExtensionsJson;
+  const join = (a: string, b: string) => (a.includes('\\') ? `${a}\\${b}` : `${a}/${b}`);
+  return join(join(paths.profilesDir, profile.id), 'extensions.json');
+}
+
 // ---------- IO wrapper ----------
 
 export interface InventoryIo {

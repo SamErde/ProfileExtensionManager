@@ -1,14 +1,10 @@
 import * as vscode from 'vscode';
-import { buildOrphanInfos, CleanupService } from '../core/cleanup';
-import {
-  directInstallProfileIds,
-  installEverywhereTargets,
-  removeEverywhereTargets,
-  type InventoryService,
-} from '../core/inventory';
-import { MutationError, type MutationService } from '../core/mutations';
-import type { ResolvedPaths } from '../core/paths';
+import { buildOrphanInfos } from '../core/cleanup';
+import { directInstallProfileIds, installEverywhereTargets, removeEverywhereTargets } from '../core/inventory';
+import { MutationError } from '../core/mutations';
 import type { HostToWebview, Inventory, WebviewToHost } from '../core/types';
+import type { Services } from '../servicesFactory';
+import { statFolder } from './fsStat';
 
 // Spike B verdict (docs/spikes/findings.md): TOGGLE_SUPPORTED = no. The command
 // `workbench.extensions.action.toggleApplyToAllProfiles` exists but requires VS Code's
@@ -17,13 +13,6 @@ import type { HostToWebview, Inventory, WebviewToHost } from '../core/types';
 // object) crashes inside the handler. Not invocable with public args; keep undefined and
 // offer the guided fallback in toggleAllProfiles below instead.
 const TOGGLE_ALL_PROFILES_COMMAND: string | undefined = undefined;
-
-type Services = {
-  inventory: InventoryService;
-  mutations: MutationService;
-  cleanup: CleanupService;
-  paths: ResolvedPaths;
-};
 
 export class MatrixPanel {
   static current: MatrixPanel | undefined;
@@ -105,6 +94,27 @@ export class MatrixPanel {
     });
   }
 
+  /**
+   * Ensures inventory is fresh, then opens the cleanup (orphan-review) view — the same effect as
+   * the webview's own "Review…" button, but invoked externally (the sidebar dashboard calls this
+   * after asking the host to show the matrix). No-op in the unsupported terminal state, since
+   * there is nothing to review there.
+   */
+  async openCleanup(): Promise<void> {
+    const services = this.services;
+    if (!services) return;
+    await this.guard(async () => {
+      await this.refresh();
+      await this.postOrphans(services);
+    });
+  }
+
+  private async postOrphans(services: Services): Promise<void> {
+    const inv = this.lastInventory ?? (await services.inventory.getInventory());
+    const orphans = await buildOrphanInfos(inv, statFolder);
+    this.post({ type: 'orphans', orphans });
+  }
+
   private post(message: HostToWebview): void {
     void this.panel.webview.postMessage(message);
   }
@@ -137,11 +147,7 @@ export class MatrixPanel {
         await this.guard(() => this.removeEverywhere(services, m.extId));
         return;
       case 'requestOrphans':
-        await this.guard(async () => {
-          const inv = this.lastInventory ?? (await services.inventory.getInventory());
-          const orphans = await buildOrphanInfos(inv, statFolder);
-          this.post({ type: 'orphans', orphans });
-        });
+        await this.guard(() => this.postOrphans(services));
         return;
       case 'cleanup':
         await this.guard(() => this.cleanup(services, m.folderNames));
@@ -338,43 +344,4 @@ export class MatrixPanel {
 </body>
 </html>`;
   }
-}
-
-async function statFolder(fsPath: string): Promise<{ sizeBytes: number; lastModifiedMs: number }> {
-  const { readdir, stat } = await import('node:fs/promises');
-  const path = await import('node:path');
-  let total = 0;
-  let newest = 0;
-
-  // One unreadable directory must not abort the whole orphan listing — skip it and keep walking.
-  async function tryReaddir(dir: string) {
-    try {
-      return await readdir(dir, { withFileTypes: true });
-    } catch {
-      return undefined;
-    }
-  }
-
-  async function walk(dir: string): Promise<void> {
-    const entries = await tryReaddir(dir);
-    if (!entries) return;
-    for (const entry of entries) {
-      const p = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(p);
-      } else {
-        // One unreadable/removed file (e.g. a race with deletion) must not abort the walk —
-        // skip it and keep totals best-effort.
-        try {
-          const s = await stat(p);
-          total += s.size;
-          if (s.mtimeMs > newest) newest = s.mtimeMs;
-        } catch {
-          // skip
-        }
-      }
-    }
-  }
-  await walk(fsPath);
-  return { sizeBytes: total, lastModifiedMs: newest };
 }

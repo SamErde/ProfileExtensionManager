@@ -3,13 +3,15 @@ import {
   composeInventory,
   directInstallProfileIds,
   installEverywhereTargets,
+  profileExtensionCounts,
+  profileManifestPath,
   removeEverywhereTargets,
   InventoryService,
   type InventoryIo,
 } from '../../src/core/inventory';
 import type { ResolvedPaths } from '../../src/core/paths';
 import type { ManifestEntry, RawProfile } from '../../src/core/parsers';
-import type { Inventory } from '../../src/core/types';
+import type { Inventory, Profile } from '../../src/core/types';
 
 const entry = (id: string, version: string, appScoped = false): ManifestEntry => ({
   id,
@@ -402,5 +404,83 @@ describe('removeEverywhereTargets', () => {
     const inv = composeInventory(baseInput());
     expect(directInstallProfileIds(inv, 'pub.everywhere')).toEqual(['default', 'aaa']); // the trap
     expect(removeEverywhereTargets(inv, 'pub.everywhere')).toEqual([]);
+  });
+});
+
+describe('profileExtensionCounts', () => {
+  it('computes direct/shared per profile: own-manifest entries vs app-scoped-everywhere entries', () => {
+    const inv = composeInventory(baseInput());
+    const counts = profileExtensionCounts(inv);
+    // default: pub.default-only is its own manifest entry (direct); pub.everywhere is app-scoped (shared).
+    expect(counts.get('default')).toEqual({ direct: 1, shared: 1 });
+    // aaa: pub.work-only is its own manifest entry (direct); pub.everywhere is app-scoped (shared).
+    expect(counts.get('aaa')).toEqual({ direct: 1, shared: 1 });
+    // builtin/agents inherits the default profile's extensions: no manifest of its own (direct 0),
+    // and shares both the app-scoped extension and the default profile's direct extension.
+    expect(counts.get('builtin/agents')).toEqual({ direct: 0, shared: 2 });
+  });
+
+  it("zeroes an inheriting profile's direct count even though composeInventory propagates default extensions into its installedIn", () => {
+    const inv = composeInventory(baseInput());
+    const defOnly = inv.extensions.find((e) => e.id === 'pub.default-only');
+    expect(defOnly?.installedIn).toContain('builtin/agents'); // the trap: it *is* in installedIn
+    expect(profileExtensionCounts(inv).get('builtin/agents')?.direct).toBe(0);
+  });
+
+  it("drops a warned profile's direct count to 0 without affecting other profiles' counts", () => {
+    const input = baseInput();
+    input.profileManifests.set('aaa', new Error('boom'));
+    const inv = composeInventory(input);
+    const counts = profileExtensionCounts(inv);
+    expect(counts.get('aaa')).toEqual({ direct: 0, shared: 1 });
+    expect(counts.get('default')).toEqual({ direct: 1, shared: 1 });
+    expect(counts.get('builtin/agents')).toEqual({ direct: 0, shared: 2 });
+  });
+
+  it('returns direct:0 and shared:0 when there are no app-scoped or default extensions at all', () => {
+    const inv = composeInventory({
+      rawProfiles: [{ location: 'p1', name: 'P1', inheritsDefaultExtensions: false }] as RawProfile[],
+      defaultManifest: [] as ManifestEntry[] | Error,
+      profileManifests: new Map<string, ManifestEntry[] | Error>(),
+      diskFolders: [] as string[],
+      obsoleteFolderNames: [] as string[],
+      displayNames: new Map<string, string>(),
+      extensionsDir: '/x',
+    });
+    expect(profileExtensionCounts(inv).get('p1')).toEqual({ direct: 0, shared: 0 });
+    expect(profileExtensionCounts(inv).get('default')).toEqual({ direct: 0, shared: 0 });
+  });
+});
+
+describe('profileManifestPath', () => {
+  const paths: ResolvedPaths = {
+    userDataDir: '/data',
+    userDir: '/data/User',
+    storageJson: '/data/User/globalStorage/storage.json',
+    profilesDir: '/data/User/profiles',
+    extensionsDir: '/ext',
+    globalExtensionsJson: '/ext/extensions.json',
+    obsoleteFile: '/ext/.obsolete',
+  };
+
+  it('resolves the default profile to the global extensions.json', () => {
+    const p: Profile = { id: 'default', name: 'Default', isDefault: true, inheritsDefaultExtensions: false };
+    expect(profileManifestPath(paths, p)).toBe('/ext/extensions.json');
+  });
+
+  it('resolves a named, non-inheriting profile to <profilesDir>/<id>/extensions.json', () => {
+    const p: Profile = { id: 'aaa', name: 'Work', isDefault: false, inheritsDefaultExtensions: false };
+    expect(profileManifestPath(paths, p)).toBe('/data/User/profiles/aaa/extensions.json');
+  });
+
+  it("returns undefined for a profile that inherits the default profile's extensions — it has no file of its own", () => {
+    const p: Profile = { id: 'builtin/agents', name: 'Agents', isDefault: false, inheritsDefaultExtensions: true };
+    expect(profileManifestPath(paths, p)).toBeUndefined();
+  });
+
+  it('joins with a backslash when profilesDir is Windows-style', () => {
+    const winPaths: ResolvedPaths = { ...paths, profilesDir: 'C:\\Users\\me\\profiles' };
+    const p: Profile = { id: 'aaa', name: 'Work', isDefault: false, inheritsDefaultExtensions: false };
+    expect(profileManifestPath(winPaths, p)).toBe('C:\\Users\\me\\profiles\\aaa\\extensions.json');
   });
 });

@@ -24,12 +24,22 @@ const webviewCtx = await esbuild.context({
   sourcemap: true,
 });
 
+const welcomeCtx = await esbuild.context({
+  entryPoints: ['src/webview/welcome.ts'],
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2022',
+  outfile: 'dist/welcome.js',
+  sourcemap: true,
+});
+
 fs.mkdirSync('dist', { recursive: true });
 fs.copyFileSync('src/webview/style.css', 'dist/webview.css');
 
 if (watch) {
-  await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
+  await Promise.all([extensionCtx.watch(), webviewCtx.watch(), welcomeCtx.watch()]);
 } else {
-  await Promise.all([extensionCtx.rebuild(), webviewCtx.rebuild()]);
-  await Promise.all([extensionCtx.dispose(), webviewCtx.dispose()]);
+  await Promise.all([extensionCtx.rebuild(), webviewCtx.rebuild(), welcomeCtx.rebuild()]);
+  await Promise.all([extensionCtx.dispose(), webviewCtx.dispose(), welcomeCtx.dispose()]);
 }

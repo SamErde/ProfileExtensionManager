@@ -62,3 +62,31 @@ export type WebviewToHost =
   | { type: 'removeEverywhere'; extId: string }
   | { type: 'requestOrphans' }
   | { type: 'cleanup'; folderNames: string[] };
+
+// --- Sidebar dashboard (welcome view) message protocol ---
+// Separate from HostToWebview/WebviewToHost above: the sidebar is a much smaller surface and
+// mixing the two protocols would force every matrix message-type change to also touch the
+// sidebar (and vice versa) for no shared benefit.
+
+export interface WelcomeProfileVm {
+  id: string;
+  name: string;
+  inheritsDefaultExtensions: boolean;
+  direct: number;
+  shared: number;
+  /** Absolute fsPath to this profile's own extensions.json. Absent for a profile that inherits
+   * the default profile's extensions — it has no file of its own to open or edit. */
+  filePath?: string;
+}
+
+export type HostToWelcome =
+  | { type: 'state'; profiles: WelcomeProfileVm[]; orphanCount: number; warnings: ParseWarning[] }
+  | { type: 'orphanSize'; totalSizeBytes: number }
+  | { type: 'unsupported'; reason: string };
+
+export type WelcomeToHost =
+  | { type: 'ready' }
+  | { type: 'openMatrix' }
+  | { type: 'openProfileReadOnly'; profileId: string }
+  | { type: 'editProfileFile'; profileId: string }
+  | { type: 'reviewOrphans' };
