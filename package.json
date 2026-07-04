@@ -1,6 +1,6 @@
 {
-  "name": "visex",
-  "displayName": "Visex — Profile Extension Manager",
+  "name": "profile-extension-manager",
+  "displayName": "Profile Extension Manager",
   "description": "See and manage which extensions are installed in which VS Code profiles. No telemetry.",
   "version": "0.1.0",
   "publisher": "SamErde",
@@ -8,20 +8,30 @@
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Other"],
   "extensionKind": ["ui"],
+  "icon": "media/icon-256.png",
+  "galleryBanner": { "color": "#16213E", "theme": "dark" },
+  "repository": { "type": "git", "url": "https://github.com/SamErde/profile-extension-manager" },
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
-      { "command": "visex.showMatrix", "title": "Visex: Show Extension Matrix", "icon": "$(extensions)" }
+      {
+        "command": "profileExtensionManager.showMatrix",
+        "title": "Show Extension Matrix",
+        "category": "Profile Extension Manager",
+        "icon": "$(extensions)"
+      }
     ],
     "viewsContainers": {
-      "activitybar": [{ "id": "visex", "title": "Visex", "icon": "media/visex.svg" }]
+      "activitybar": [
+        { "id": "profileExtensionManager", "title": "Profile Extension Manager", "icon": "media/activity-icon.svg" }
+      ]
     },
-    "views": { "visex": [{ "id": "visex.welcome", "name": "Profiles" }] },
+    "views": { "profileExtensionManager": [{ "id": "profileExtensionManager.welcome", "name": "Profiles" }] },
     "viewsWelcome": [
       {
-        "view": "visex.welcome",
-        "contents": "Manage extensions across all your VS Code profiles.\n[Open Extension Matrix](command:visex.showMatrix)"
+        "view": "profileExtensionManager.welcome",
+        "contents": "Manage extensions across all your VS Code profiles.\n[Open Extension Matrix](command:profileExtensionManager.showMatrix)"
       }
     ]
   },

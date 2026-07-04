@@ -9,3 +9,8 @@ tsconfig*.json
 out-test/
 *.vsix
 .gitignore
+.superpowers/
+.vscode-test/
+assets/
+scripts/
+.vscode/

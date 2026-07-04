@@ -23,11 +23,16 @@ export class MatrixPanel {
       MatrixPanel.current.panel.reveal();
       return;
     }
-    const panel = vscode.window.createWebviewPanel('visexMatrix', 'Extension Matrix', vscode.ViewColumn.One, {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
-    });
+    const panel = vscode.window.createWebviewPanel(
+      'profileExtensionManager.matrix',
+      'Extension Matrix',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
+      },
+    );
     MatrixPanel.current = new MatrixPanel(panel, context, services);
   }
 

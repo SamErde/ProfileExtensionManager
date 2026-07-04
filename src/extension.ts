@@ -7,7 +7,7 @@ import { MatrixPanel } from './panel/matrixPanel';
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('visex.showMatrix', async () => {
+    vscode.commands.registerCommand('profileExtensionManager.showMatrix', async () => {
       const setup = await buildServices(context);
       if ('error' in setup) {
         void vscode.window.showErrorMessage(
