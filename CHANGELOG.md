@@ -2,7 +2,7 @@
 
 All notable changes to the Profile Extension Manager extension are documented in this file.
 
-## [Unreleased]
+## 0.6.0 (2026-07-04)
 
 ### Added
 

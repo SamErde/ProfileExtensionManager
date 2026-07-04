@@ -8,7 +8,10 @@ vitest.config.ts
 tsconfig*.json
 out-test/
 *.vsix
+releases/
 .gitignore
+.release-please-manifest.json
+release-please-config.json
 .superpowers/
 .vscode-test/
 assets/

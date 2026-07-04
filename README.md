@@ -24,3 +24,10 @@ Easily see and manage which extensions are installed in each VS Code profile, al
 ## How It Works
 
 Profile Extension Manager reads the same files VS Code itself maintains: the profile registry and each profile's extension list. All installs and uninstalls run through the official `code` command-line interface, scoped to the right profile (and, when applicable, the right `--user-data-dir`/`--extensions-dir`).
+
+## Releasing (maintainers)
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please) and driven by conventional commits: commits merged to `main` accumulate into a bot-managed release PR that maintains `CHANGELOG.md` and the version bump; merging that PR tags the release and publishes a GitHub Release with the packaged `.vsix` attached. No manual version edits or manual `vsce publish` are part of the normal flow.
+
+- Local packaging: `npm run package` builds a `.vsix` into `releases/` (gitignored, not committed).
+- To enable automatic Marketplace publishing on release, add a `VSCE_PAT` repository secret and uncomment the publish step in `.github/workflows/release-please.yml`; until then, run `npx vsce publish --packagePath releases/*.vsix` by hand after a release if you want it on the Marketplace.

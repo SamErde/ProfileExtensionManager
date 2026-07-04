@@ -50,7 +50,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "npm run build && tsc -p tsconfig.integration.json && node out-test/test/integration/runTests.js",
-    "package": "vsce package"
+    "package": "node -e \"require('fs').mkdirSync('releases',{recursive:true})\" && vsce package --out releases/"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -1,0 +1,66 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # Default GITHUB_TOKEN. Note: releases/tags created with the default
+          # GITHUB_TOKEN do NOT trigger other workflows that listen on
+          # `on: release` or `on: push` for the tag ref (GitHub's anti-recursion
+          # guard). That's intentional here — the packaging/publish steps run
+          # as job 2 in *this same* workflow run instead of a separate
+          # tag-triggered workflow.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  package-and-publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - name: Integration tests (Xvfb)
+        run: xvfb-run -a npm run test:integration
+      - name: Package extension
+        run: npm run package
+      - name: Attach VSIX to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" releases/*.vsix
+
+      # --- Marketplace publishing (disabled until VSCE_PAT secret exists) ---
+      # To enable auto-publish to the VS Code Marketplace:
+      #   1. Create a Marketplace Personal Access Token (Azure DevOps org
+      #      settings > Personal Access Tokens, Marketplace > Manage scope).
+      #   2. Add it as a repository secret named VSCE_PAT.
+      #   3. Uncomment the step below.
+      #
+      # - name: Publish to VS Code Marketplace
+      #   env:
+      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      #   run: npx vsce publish --packagePath releases/*.vsix
