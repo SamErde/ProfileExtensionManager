@@ -37,6 +37,7 @@
   },
   "scripts": {
     "build": "node esbuild.mjs",
+    "vscode:prepublish": "npm run build",
     "watch": "node esbuild.mjs --watch",
     "lint": "tsc --noEmit",
     "test": "vitest run",

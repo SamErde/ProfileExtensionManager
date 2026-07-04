@@ -10,6 +10,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('profileExtensionManager.showMatrix', async () => {
       const setup = await buildServices(context);
       if ('error' in setup) {
+        // Primary cue: the panel itself renders the can't-manage state (never a blank screen).
+        MatrixPanel.showUnsupported(context, setup.error);
+        // Secondary cue: a toast, kept for users who miss/close the panel.
         void vscode.window.showErrorMessage(
           `Profile Extension Manager can't manage profiles in this environment: ${setup.error}`,
         );
@@ -32,6 +35,17 @@ type Services = {
 };
 
 async function buildServices(context: vscode.ExtensionContext): Promise<Services | { error: string }> {
+  // In a dev host (F5), context.extensionUri is the source folder, not an installed extension,
+  // so the derived extensions pool resolves to the repo's parent directory — one toggle would
+  // run mutations against the developer's real user-data dir under the Spike C silent-hybrid
+  // failure mode (docs/spikes/findings.md), not a sandbox. Guard it out; PEM_DEV_ALLOW=1 is the
+  // deliberate escape hatch for intentional dev-host testing.
+  if (context.extensionMode !== vscode.ExtensionMode.Production && process.env['PEM_DEV_ALLOW'] !== '1') {
+    return {
+      error:
+        'running in a development host — Profile Extension Manager manages the install it runs in; run from an installed build.',
+    };
+  }
   if (vscode.env.remoteName !== undefined) return { error: 'remote workspaces are not supported.' };
 
   const fs = await import('node:fs');
@@ -53,8 +67,15 @@ async function buildServices(context: vscode.ExtensionContext): Promise<Services
     readFile: async (p) => {
       try {
         return await fsp.readFile(p, 'utf8');
-      } catch {
-        return undefined;
+      } catch (e) {
+        // ENOENT (does not exist) degrades to the usual "missing file" handling. Any other
+        // error (EPERM/EACCES on a locked storage.json or global extensions.json, etc.) must
+        // not be conflated with "missing" — that would silently disable orphan suppression for
+        // data InventoryService can no longer see, the exact false-orphan class the inventory
+        // design guards against. Surface it as an Error so getInventory degrades it like a
+        // parse failure instead.
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+        return e instanceof Error ? e : new Error(String(e));
       }
     },
     listDirs: async (p) => {

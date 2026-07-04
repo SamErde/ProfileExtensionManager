@@ -12,6 +12,8 @@ import type { HostToWebview, Inventory, WebviewToHost } from '../core/types';
 // offer the guided fallback in toggleAllProfiles below instead.
 const TOGGLE_ALL_PROFILES_COMMAND: string | undefined = undefined;
 
+type Services = { inventory: InventoryService; mutations: MutationService; cleanup: CleanupService };
+
 export class MatrixPanel {
   static current: MatrixPanel | undefined;
 
@@ -33,7 +35,31 @@ export class MatrixPanel {
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
       },
     );
-    MatrixPanel.current = new MatrixPanel(panel, context, services);
+    MatrixPanel.current = new MatrixPanel(panel, context, services, undefined);
+  }
+
+  /**
+   * Opens the panel in the terminal "can't manage profiles here" state instead of the matrix.
+   * Per the design spec's error-handling class 1, the panel must never be a blank screen even
+   * when the environment is unsupported — the webview renders `reason` once it signals ready.
+   * Mirrors `show`'s reveal-if-already-open behavior.
+   */
+  static showUnsupported(context: vscode.ExtensionContext, reason: string): void {
+    if (MatrixPanel.current) {
+      MatrixPanel.current.panel.reveal();
+      return;
+    }
+    const panel = vscode.window.createWebviewPanel(
+      'profileExtensionManager.matrix',
+      'Extension Matrix',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
+      },
+    );
+    MatrixPanel.current = new MatrixPanel(panel, context, undefined, reason);
   }
 
   private lastInventory: Inventory | undefined;
@@ -41,11 +67,10 @@ export class MatrixPanel {
   private constructor(
     private readonly panel: vscode.WebviewPanel,
     context: vscode.ExtensionContext,
-    private readonly services: {
-      inventory: InventoryService;
-      mutations: MutationService;
-      cleanup: CleanupService;
-    },
+    private readonly services: Services | undefined,
+    /** Set only by `showUnsupported`. When defined, the panel is permanently in the terminal
+     *  can't-manage state and every mutating message is guarded out in `onMessage`. */
+    private readonly unsupportedReason: string | undefined,
   ) {
     panel.webview.html = this.html(context);
     panel.onDidDispose(() => (MatrixPanel.current = undefined));
@@ -53,6 +78,7 @@ export class MatrixPanel {
   }
 
   async refresh(): Promise<void> {
+    if (!this.services) return; // unsupported mode — nothing to read; see onMessage's guard.
     this.lastInventory = await this.services.inventory.getInventory();
     this.post({
       type: 'inventory',
@@ -66,26 +92,35 @@ export class MatrixPanel {
   }
 
   private async onMessage(m: WebviewToHost): Promise<void> {
+    const services = this.services;
+    if (!services) {
+      // Terminal state (see showUnsupported): there are no services to act on, so every
+      // message type is guarded out except 'ready', which (re-)announces the can't-manage
+      // state instead of refreshing — this covers a fresh webview load and the narrow startup
+      // race before the toolbar detaches (the webview's 'unsupported' handler removes it).
+      if (m.type === 'ready') this.post({ type: 'unsupported', reason: this.unsupportedReason ?? '' });
+      return;
+    }
     switch (m.type) {
       case 'ready':
       case 'refresh':
         await this.guard(() => this.refresh());
         return;
       case 'toggleCell':
-        await this.guard(() => this.toggleCell(m.extId, m.profileId, m.install));
+        await this.guard(() => this.toggleCell(services, m.extId, m.profileId, m.install));
         return;
       case 'toggleAllProfiles':
         await this.guard(() => this.toggleAllProfiles(m.extId));
         return;
       case 'requestOrphans':
         await this.guard(async () => {
-          const inv = this.lastInventory ?? (await this.services.inventory.getInventory());
+          const inv = this.lastInventory ?? (await services.inventory.getInventory());
           const orphans = await buildOrphanInfos(inv, statFolder);
           this.post({ type: 'orphans', orphans });
         });
         return;
       case 'cleanup':
-        await this.guard(() => this.cleanup(m.folderNames));
+        await this.guard(() => this.cleanup(services, m.folderNames));
         return;
     }
   }
@@ -102,7 +137,7 @@ export class MatrixPanel {
     }
   }
 
-  private async toggleCell(extId: string, profileId: string, install: boolean): Promise<void> {
+  private async toggleCell(services: Services, extId: string, profileId: string, install: boolean): Promise<void> {
     const inv = this.lastInventory;
     if (!inv) return;
     const profile = inv.profiles.find((p) => p.id === profileId);
@@ -143,8 +178,8 @@ export class MatrixPanel {
 
     this.post({ type: 'pending', extId, profileId });
     const profileName = profile.isDefault ? undefined : profile.name;
-    if (install) await this.services.mutations.install(extId, profileName);
-    else await this.services.mutations.uninstall(extId, profileName);
+    if (install) await services.mutations.install(extId, profileName);
+    else await services.mutations.uninstall(extId, profileName);
     await this.refresh();
   }
 
@@ -162,7 +197,7 @@ export class MatrixPanel {
     );
   }
 
-  private async cleanup(folderNames: string[]): Promise<void> {
+  private async cleanup(services: Services, folderNames: string[]): Promise<void> {
     const inv = this.lastInventory;
     if (!inv || folderNames.length === 0) return;
     // Defense in depth: only ever target folders belonging to orphaned extensions, even
@@ -179,7 +214,7 @@ export class MatrixPanel {
       await this.refresh(); // revert any pending UI state
       return;
     }
-    const results = await this.services.cleanup.deleteFolders(targets);
+    const results = await services.cleanup.deleteFolders(targets);
     this.post({ type: 'cleanupResult', results });
     await this.refresh();
   }

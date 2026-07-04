@@ -147,8 +147,14 @@ export function directInstallProfileIds(inventory: Inventory, extId: string): st
 // ---------- IO wrapper ----------
 
 export interface InventoryIo {
-  /** undefined when the file does not exist */
-  readFile(p: string): Promise<string | undefined>;
+  /**
+   * undefined when the file does not exist; an Error when it exists but could not be read
+   * (e.g. EPERM/EACCES on a locked file) — the two are not interchangeable: "missing" degrades
+   * into the usual empty/absent handling, while "unreadable" must not be silently treated as
+   * missing, since that would misclassify extensions belonging to the unreadable file as
+   * orphans (see getInventory's orphanKnowledgeUnreliable wiring).
+   */
+  readFile(p: string): Promise<string | undefined | Error>;
   listDirs(p: string): Promise<string[]>;
   /** best-effort displayName from <folder>/package.json */
   readDisplayName(extFolderPath: string): Promise<string | undefined>;
@@ -171,7 +177,9 @@ export class InventoryService {
     let rawProfiles: RawProfile[] = [];
     let registryError: Error | undefined;
     const storageText = await this.io.readFile(this.paths.storageJson);
-    if (storageText !== undefined) {
+    if (storageText instanceof Error) {
+      registryError = storageText;
+    } else if (storageText !== undefined) {
       try {
         rawProfiles = parseProfileRegistry(storageText);
       } catch (e) {
@@ -182,6 +190,7 @@ export class InventoryService {
     const readManifest = async (p: string): Promise<ManifestEntry[] | Error> => {
       const text = await this.io.readFile(p);
       if (text === undefined) return [];
+      if (text instanceof Error) return text;
       try {
         return parseExtensionsManifest(text);
       } catch (e) {
@@ -203,7 +212,9 @@ export class InventoryService {
     const obsoleteText = await this.io.readFile(this.paths.obsoleteFile);
     let obsoleteFolderNames: string[] = [];
     let obsoleteError: Error | undefined;
-    if (obsoleteText !== undefined) {
+    if (obsoleteText instanceof Error) {
+      obsoleteError = obsoleteText;
+    } else if (obsoleteText !== undefined) {
       try {
         obsoleteFolderNames = parseObsolete(obsoleteText);
       } catch (e) {

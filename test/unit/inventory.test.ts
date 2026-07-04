@@ -111,7 +111,7 @@ describe('InventoryService', () => {
   };
 
   const makeIo = (
-    files: Record<string, string>,
+    files: Record<string, string | Error>,
     dirs: string[] = [],
     displayNames: Record<string, string> = {},
   ): InventoryIo => ({
@@ -208,6 +208,41 @@ describe('InventoryService', () => {
     expect(warning?.affectedProfileIds).toEqual(['default']);
     expect(inv.extensions.find((e) => e.id === 'pub.appscoped')).toBeUndefined();
     expect(inv.extensions.some((e) => e.orphaned)).toBe(false);
+  });
+
+  it('degrades an unreadable (EPERM-style) storage.json into a registry-wide warning and suppresses orphans without rejecting', async () => {
+    // Mirrors the corrupt-JSON case, but exercises the IO-error path: readFile itself failed
+    // (e.g. a locked file), not JSON.parse. Unreadable must degrade exactly like unparsable —
+    // never conflated with "missing", which would silently skip orphan suppression instead.
+    const unreadable = Object.assign(new Error(`EPERM: operation not permitted, open '${PATHS.storageJson}'`), {
+      code: 'EPERM',
+    });
+    const io = makeIo(
+      { [PATHS.storageJson]: unreadable, [PATHS.globalExtensionsJson]: defaultManifest },
+      ['pub.alpha-1.0.0', 'pub.hidden-4.0.0'],
+    );
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    expect(inv.profiles.map((p) => p.id)).toEqual(['default']);
+    expect(inv.warnings).toHaveLength(1);
+    expect(inv.warnings[0]?.file).toBe('globalStorage/storage.json');
+    expect(inv.warnings[0]?.message).toBe(unreadable.message);
+    expect(inv.warnings[0]?.affectedProfileIds).toEqual(['default']);
+    // Named profiles are invisible without the registry, so pub.hidden looks disk-only —
+    // suppress orphan reporting rather than guess, same as the corrupt-JSON case.
+    expect(inv.extensions.find((e) => e.id === 'pub.hidden')).toBeUndefined();
+    expect(inv.extensions.some((e) => e.orphaned)).toBe(false);
+  });
+
+  it('degrades a corrupt per-profile manifest into a warning for that profile without rejecting', async () => {
+    const io = makeIo({
+      [PATHS.storageJson]: storageJson,
+      [PATHS.globalExtensionsJson]: defaultManifest,
+      '/data/User/profiles/aaa/extensions.json': '{{{',
+    });
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    expect(inv.warnings).toHaveLength(1);
+    expect(inv.warnings[0]?.file).toBe('profiles/aaa/extensions.json');
+    expect(inv.warnings[0]?.affectedProfileIds).toEqual(['aaa']);
   });
 });
 
