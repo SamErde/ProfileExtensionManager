@@ -122,11 +122,49 @@ function showCard(extId: string, trigger: HTMLElement): void {
   clearShowTimer();
   cancelHide();
   if (!inventory) return;
+  // A pending show timer can outlive a content rebuild — its captured trigger element is then
+  // detached and would position the card at (0,0). Ignore it; the re-created element gets its
+  // own listeners.
+  if (!trigger.isConnected) return;
   const ext = inventory.extensions.find((e) => e.id === extId);
   if (!ext) return;
   cardOwnerExtId = extId;
-  buildCardContent(ext);
+  rebuildCard(ext);
   card.hidden = false;
+  positionCard(trigger);
+}
+
+/** True while buildCardContent is replacing the card's children — the removal of a focused
+ * child fires a focusout with no in-card relatedTarget, which must not be mistaken for the
+ * user tabbing away (it would close the card on every live refresh for keyboard users). */
+let rebuildingCard = false;
+
+function rebuildCard(ext: ExtensionRecord): void {
+  rebuildingCard = true;
+  try {
+    buildCardContent(ext);
+  } finally {
+    rebuildingCard = false;
+  }
+}
+
+/**
+ * Called after every content rebuild: an open card's anchor element was just discarded with the
+ * old table. Rather than closing the card on each unrelated refresh (watcher-driven inventory
+ * pushes land often, and 'pending' pushes must update the card's disabled buttons live),
+ * re-anchor it to the extension's re-created name element and rebuild its contents from the new
+ * inventory. Hidden only when the extension no longer exists or its row is no longer rendered
+ * (e.g. filtered out).
+ */
+function syncOpenCard(): void {
+  if (card.hidden || cardOwnerExtId === undefined) return;
+  const ext = inventory?.extensions.find((e) => e.id === cardOwnerExtId);
+  const trigger = contentEl.querySelector<HTMLElement>(`.name[data-ext-id="${CSS.escape(cardOwnerExtId)}"]`);
+  if (!ext || !trigger) {
+    hideCard();
+    return;
+  }
+  rebuildCard(ext);
   positionCard(trigger);
 }
 
@@ -217,6 +255,7 @@ card.addEventListener('mouseleave', scheduleHideCard);
 // The card must never trap focus: tabbing (or otherwise moving focus) to anything outside it —
 // including back to the name that opened it — closes it.
 card.addEventListener('focusout', (e) => {
+  if (rebuildingCard) return; // focus lost to a live rebuild, not to the user tabbing away
   const related = (e as FocusEvent).relatedTarget;
   if (related instanceof Node && card.contains(related)) return;
   hideCard();
@@ -274,6 +313,7 @@ window.addEventListener('message', (event: MessageEvent<HostToWebview>) => {
       return;
     }
     case 'unsupported':
+      hideCard();
       app.replaceChildren(el('div', '', m.reason));
       return;
   }
@@ -305,16 +345,14 @@ function updateOrphanButton(): void {
 }
 
 function renderContent(): void {
-  // Any open hover card references DOM elements this rebuild is about to discard (and, on a
-  // fresh 'inventory'/'pending' push, its content may now be stale) — close it rather than try
-  // to re-anchor it to a new element.
-  hideCard();
   contentEl.replaceChildren();
   if (!inventory) {
+    hideCard();
     contentEl.append(el('div', '', 'Loading…'));
     return;
   }
   if (orphans !== undefined) {
+    hideCard(); // the cleanup view has no extension names to anchor a card to
     renderCleanup(orphans);
     return;
   }
@@ -343,6 +381,7 @@ function renderContent(): void {
     // The name itself is the hover-card trigger: hover (after a short delay) or keyboard focus
     // (immediate) opens the card with detail + the row's bulk actions.
     const nameTrigger = el('span', row.orphaned ? 'name orphaned' : 'name', row.displayName);
+    nameTrigger.dataset['extId'] = row.extId; // lets syncOpenCard re-anchor after a rebuild
     nameTrigger.tabIndex = 0;
     nameTrigger.setAttribute('role', 'button');
     nameTrigger.setAttribute('aria-haspopup', 'true');
@@ -407,6 +446,10 @@ function renderContent(): void {
     table.append(tr);
   }
   contentEl.append(table);
+
+  // An open card survives the rebuild: re-anchored to the re-created name element and its
+  // contents (including pending-disabled buttons) refreshed from the new state.
+  syncOpenCard();
 }
 
 function renderCleanup(list: OrphanInfo[]): void {
@@ -443,7 +486,7 @@ function renderCleanup(list: OrphanInfo[]): void {
       row.append(
         box,
         el('span', 'name', `${o.displayName} `),
-        el('span', 'version', `${f.folderName} — ${formatBytes(f.sizeBytes)}, modified ${new Date(f.lastModifiedMs).toLocaleDateString()}`),
+        el('span', 'orphan-meta', `${f.folderName} — ${formatBytes(f.sizeBytes)}, modified ${new Date(f.lastModifiedMs).toLocaleDateString()}`),
       );
       contentEl.append(row);
     }

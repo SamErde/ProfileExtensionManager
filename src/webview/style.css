@@ -36,7 +36,6 @@ th { position: sticky; top: 0; background: var(--vscode-editor-background); }
   background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
   font-size: 0.65em; font-weight: 600;
 }
-.version { opacity: 0.6; font-size: 0.85em; }
 .name.orphaned { opacity: 0.6; text-decoration: line-through; }
 .name[tabindex] { cursor: pointer; border-radius: 2px; }
 .name[tabindex]:hover { text-decoration: underline; }
@@ -54,6 +53,7 @@ th { position: sticky; top: 0; background: var(--vscode-editor-background); }
   padding: 0.4rem 0.8rem; margin-bottom: 0.5rem;
 }
 .orphan-row { display: block; padding: 0.25rem 0; }
+.orphan-meta { opacity: 0.6; font-size: 0.85em; }
 
 /* Extension detail hover card — one reusable element, positioned via JS (left/top) on show. */
 .ext-card {

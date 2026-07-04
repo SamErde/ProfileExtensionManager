@@ -20,9 +20,11 @@ export interface ComposeInput {
   displayNames: Map<string, string>;
   /** extension id -> absolute icon fsPath, from the first disk version folder that has one */
   iconFsPaths?: Map<string, string>;
-  /** extension id -> package.json description, same folder as displayNames */
+  /** extension id -> package.json description, from the first disk version folder whose
+   *  package.json carries one (each field is resolved independently, like displayNames) */
   descriptions?: Map<string, string>;
-  /** extension id -> package.json publisher, same folder as displayNames */
+  /** extension id -> package.json publisher, from the first disk version folder whose
+   *  package.json carries one (each field is resolved independently, like displayNames) */
   publishers?: Map<string, string>;
   extensionsDir: string;
   /**

@@ -22,9 +22,11 @@ export interface ExtensionRecord {
   orphaned: boolean; // derived: installedIn.length === 0 && !applyToAllProfiles
   /** Absolute path to the icon file, composed from the first disk version folder that has one. */
   iconFsPath?: string;
-  /** From package.json `description`, same folder as displayName. */
+  /** From package.json `description` — resolved independently of the other package.json fields,
+   *  from the first disk version folder whose package.json carries it. */
   description?: string;
-  /** From package.json `publisher`, same folder as displayName. */
+  /** From package.json `publisher` — resolved independently of the other package.json fields,
+   *  from the first disk version folder whose package.json carries it. */
   publisher?: string;
   /** From the first manifest entry for this id (default manifest first, then profile manifests)
    *  that carries it — metadata.publisherDisplayName. */

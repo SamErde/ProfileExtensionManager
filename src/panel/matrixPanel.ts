@@ -305,10 +305,20 @@ export class MatrixPanel {
     await this.refresh();
   }
 
-  /** Opens the extension's page in VS Code's native Extensions view — used by the hover card's
-   *  name link. Offline-only: this asks the workbench to open its own extension details page for
-   *  an already-installed extension, no marketplace call is made by this extension itself. */
+  /**
+   * Opens VS Code's own extension page for `extId` — used by the hover card's name link.
+   * Honest network note: VS Code's `extension.open` implementation queries its gallery service
+   * as part of opening the page. PEM itself makes no network calls — the navigation is
+   * user-initiated, and any Marketplace contact is VS Code's own, governed by VS Code's settings.
+   */
   private async openExtensionPage(extId: string): Promise<void> {
+    // Same defense-in-depth as toggleCell/installEverywhere: only act on ids present in the
+    // last inventory the webview could have rendered — an unknown/stale id re-syncs instead.
+    const ext = this.lastInventory?.extensions.find((x) => x.id === extId);
+    if (!ext) {
+      await this.refresh();
+      return;
+    }
     await vscode.commands.executeCommand('extension.open', extId);
   }
 
