@@ -173,8 +173,10 @@ export class WelcomeViewProvider implements vscode.WebviewViewProvider {
 </style>
 </head>
 <body>
+<div id="launcher">
 <p>The Extension Matrix opens as an editor tab.</p>
 <button id="open">Open Extension Matrix</button>
+</div>
 <div id="dashboard">
 <h2>Profiles</h2>
 <ul id="profiles"></ul>

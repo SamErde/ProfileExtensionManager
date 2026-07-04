@@ -138,6 +138,20 @@ function sep(referencePath: string): string {
   return referencePath.includes('\\') ? '\\' : '/';
 }
 
+/**
+ * Defense in depth for package.json `icon` values, which are attacker-controlled data from an
+ * installed extension's folder: only a plain relative path inside the extension folder is
+ * accepted. Absolute paths (leading slash/backslash or a Windows drive letter) and any `..`
+ * segment are rejected — the record then simply has no iconFsPath and the webview falls back to
+ * its letter tile. The webview's localResourceRoots already contains icon loading; this makes the
+ * containment explicit at compose time instead of relying on that enforcement alone.
+ */
+function isSafeIconRelPath(icon: string): boolean {
+  if (icon.startsWith('/') || icon.startsWith('\\')) return false;
+  if (/^[A-Za-z]:/.test(icon)) return false;
+  return !icon.split(/[/\\]/).includes('..');
+}
+
 /** Profile ids where the extension is directly installed (excludes profiles that only inherit it). */
 export function directInstallProfileIds(inventory: Inventory, extId: string): string[] {
   const ext = inventory.extensions.find((e) => e.id === extId);
@@ -309,7 +323,7 @@ export class InventoryService {
       const meta = await this.io.readPackageMeta(joinP(this.paths.extensionsDir, folderName));
       if (!meta) continue;
       if (needDisplayName && meta.displayName) displayNames.set(parsed.id, meta.displayName);
-      if (needIcon && meta.icon) {
+      if (needIcon && meta.icon && isSafeIconRelPath(meta.icon)) {
         const raw = `${this.paths.extensionsDir}/${folderName}/${meta.icon}`;
         iconFsPaths.set(parsed.id, raw.replaceAll('/', sep(this.paths.extensionsDir)));
       }

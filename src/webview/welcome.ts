@@ -14,6 +14,7 @@ window.addEventListener('message', (event: MessageEvent<HostToWelcome>) => {
     case 'state':
       state = m;
       orphanSizeText = '';
+      setLauncherHidden(false);
       render();
       return;
     case 'orphanSize':
@@ -22,6 +23,9 @@ window.addEventListener('message', (event: MessageEvent<HostToWelcome>) => {
       return;
     case 'unsupported': {
       state = undefined;
+      // The intro text and "Open Extension Matrix" button would only re-trigger the same
+      // failure in this environment — hide them and show nothing but the reason text.
+      setLauncherHidden(true);
       const dashboard = document.getElementById('dashboard');
       if (!dashboard) return;
       dashboard.replaceChildren(el('p', '', m.reason));
@@ -29,6 +33,11 @@ window.addEventListener('message', (event: MessageEvent<HostToWelcome>) => {
     }
   }
 });
+
+function setLauncherHidden(hidden: boolean): void {
+  const launcher = document.getElementById('launcher');
+  if (launcher) launcher.hidden = hidden;
+}
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;

@@ -174,6 +174,48 @@ describe('InventoryService', () => {
     expect(inv.extensions.some((e) => e.orphaned)).toBe(false);
   });
 
+  it('rejects icon paths with .. segments or a drive letter — record gets no iconFsPath', async () => {
+    // Defense in depth: package.json `icon` is attacker-controlled data from an installed
+    // extension's folder. Containment must not rely solely on the webview's localResourceRoots.
+    const io = makeIo(
+      {
+        [PATHS.storageJson]: storageJson,
+        [PATHS.globalExtensionsJson]: defaultManifest,
+      },
+      ['pub.alpha-1.0.0', 'pub.beta-2.0.0'],
+      {},
+      {
+        '/ext/pub.alpha-1.0.0': '../../evil.png',
+        '/ext/pub.beta-2.0.0': 'C:/evil.png',
+      },
+    );
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    expect(inv.extensions.find((e) => e.id === 'pub.alpha')?.iconFsPath).toBeUndefined();
+    expect(inv.extensions.find((e) => e.id === 'pub.beta')?.iconFsPath).toBeUndefined();
+  });
+
+  it('rejects leading-slash and backslash-traversal icon paths but keeps safe nested ones', async () => {
+    const io = makeIo(
+      {
+        [PATHS.storageJson]: storageJson,
+        [PATHS.globalExtensionsJson]: defaultManifest,
+      },
+      ['pub.alpha-1.0.0', 'pub.beta-2.0.0', 'pub.gamma-3.0.0'],
+      {},
+      {
+        '/ext/pub.alpha-1.0.0': '/etc/evil.png',
+        '/ext/pub.beta-2.0.0': 'media\\..\\..\\evil.png',
+        '/ext/pub.gamma-3.0.0': 'media/icons/icon.png', // safe — must still resolve
+      },
+    );
+    const inv = await new InventoryService(PATHS, io).getInventory();
+    expect(inv.extensions.find((e) => e.id === 'pub.alpha')?.iconFsPath).toBeUndefined();
+    expect(inv.extensions.find((e) => e.id === 'pub.beta')?.iconFsPath).toBeUndefined();
+    expect(inv.extensions.find((e) => e.id === 'pub.gamma')?.iconFsPath).toBe(
+      '/ext/pub.gamma-3.0.0/media/icons/icon.png',
+    );
+  });
+
   it('uses the icon from the first disk version folder that has one, skipping iconless versions', async () => {
     const io = makeIo(
       {

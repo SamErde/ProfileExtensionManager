@@ -336,7 +336,7 @@ export class MatrixPanel {
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'none'; style-src ${w.cspSource}; script-src 'nonce-${nonce}'; img-src ${w.cspSource};">
 <link rel="stylesheet" href="${style}">
-<title>Extension Matrix</title>
+<title>Profile Extension Matrix</title>
 </head>
 <body>
 <div id="app">Loading…</div>
