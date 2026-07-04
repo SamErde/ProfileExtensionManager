@@ -144,6 +144,29 @@ export function directInstallProfileIds(inventory: Inventory, extId: string): st
   return ext.installedIn.filter((pid) => nonInheriting.has(pid));
 }
 
+/**
+ * Profiles "Install in all profiles" should target: non-inheriting (inheriting profiles can't
+ * hold a direct install), not disabled by a parse warning, and not already installed.
+ */
+export function installEverywhereTargets(inventory: Inventory, extId: string): Profile[] {
+  const ext = inventory.extensions.find((e) => e.id === extId);
+  if (!ext) return [];
+  const disabledIds = new Set(inventory.warnings.flatMap((w) => w.affectedProfileIds));
+  return inventory.profiles.filter(
+    (p) => !p.inheritsDefaultExtensions && !disabledIds.has(p.id) && !ext.installedIn.includes(p.id),
+  );
+}
+
+/**
+ * Profiles "Remove from all profiles" should target: every profile the extension is directly
+ * installed in (see directInstallProfileIds), minus any disabled by a parse warning.
+ */
+export function removeEverywhereTargets(inventory: Inventory, extId: string): Profile[] {
+  const disabledIds = new Set(inventory.warnings.flatMap((w) => w.affectedProfileIds));
+  const direct = new Set(directInstallProfileIds(inventory, extId).filter((pid) => !disabledIds.has(pid)));
+  return inventory.profiles.filter((p) => direct.has(p.id));
+}
+
 // ---------- IO wrapper ----------
 
 export interface InventoryIo {

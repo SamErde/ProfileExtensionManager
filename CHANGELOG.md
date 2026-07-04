@@ -12,3 +12,4 @@ All notable changes to the Profile Extension Manager extension are documented in
 - Orphaned-extension cleanup (review + confirm, moves to Recycle Bin/Trash).
 - No telemetry — this extension does not collect or transmit any data.
 - Clicking the activity-bar icon now opens the Extension Matrix automatically; configurable via `profileExtensionManager.openMatrixOnActivityBarClick`.
+- Per-row bulk actions in the extension matrix: install in every profile via the CLI, remove from every profile where it's directly installed, and a guided "Apply to all profiles…" shortcut that opens the Extensions view for VS Code's native toggle.

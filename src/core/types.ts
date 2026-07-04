@@ -56,5 +56,7 @@ export type WebviewToHost =
   | { type: 'refresh' }
   | { type: 'toggleCell'; extId: string; profileId: string; install: boolean }
   | { type: 'toggleAllProfiles'; extId: string }
+  | { type: 'installEverywhere'; extId: string }
+  | { type: 'removeEverywhere'; extId: string }
   | { type: 'requestOrphans' }
   | { type: 'cleanup'; folderNames: string[] };

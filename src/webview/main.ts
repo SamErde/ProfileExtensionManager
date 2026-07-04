@@ -170,6 +170,31 @@ function renderContent(): void {
       badge.addEventListener('click', () => post({ type: 'toggleAllProfiles', extId: row.extId }));
       name.append(badge);
     }
+
+    const rowPending = [...pending].some((key) => key.startsWith(`${row.extId}|`));
+    const actions = el('span', 'row-actions');
+
+    const installAllBtn = el('button', 'row-action', 'Install') as HTMLButtonElement;
+    installAllBtn.title =
+      "Install in every profile via the VS Code CLI. Unlike VS Code's native 'apply to all profiles' flag, future new profiles will not inherit it.";
+    installAllBtn.disabled = rowPending;
+    installAllBtn.addEventListener('click', () => post({ type: 'installEverywhere', extId: row.extId }));
+    actions.append(installAllBtn);
+
+    const removeAllBtn = el('button', 'row-action', 'Remove') as HTMLButtonElement;
+    removeAllBtn.title = 'Uninstall from every profile where it is directly installed.';
+    removeAllBtn.disabled = rowPending;
+    removeAllBtn.addEventListener('click', () => post({ type: 'removeEverywhere', extId: row.extId }));
+    actions.append(removeAllBtn);
+
+    const applyAllBtn = el('button', 'row-action', 'Apply…') as HTMLButtonElement;
+    applyAllBtn.title =
+      "Opens the Extensions view where you can toggle VS Code's native 'Apply Extension to all Profiles' option — VS Code provides no API for extensions to toggle it directly.";
+    applyAllBtn.disabled = rowPending;
+    applyAllBtn.addEventListener('click', () => post({ type: 'toggleAllProfiles', extId: row.extId }));
+    actions.append(applyAllBtn);
+
+    name.append(actions);
     tr.append(name);
     for (const cell of row.cells) {
       const td = el('td', 'cell');

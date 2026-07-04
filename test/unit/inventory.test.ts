@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { composeInventory, directInstallProfileIds, InventoryService, type InventoryIo } from '../../src/core/inventory';
+import {
+  composeInventory,
+  directInstallProfileIds,
+  installEverywhereTargets,
+  removeEverywhereTargets,
+  InventoryService,
+  type InventoryIo,
+} from '../../src/core/inventory';
 import type { ResolvedPaths } from '../../src/core/paths';
 import type { ManifestEntry, RawProfile } from '../../src/core/parsers';
+import type { Inventory } from '../../src/core/types';
 
 const entry = (id: string, version: string, appScoped = false): ManifestEntry => ({
   id,
@@ -275,5 +283,65 @@ describe('directInstallProfileIds', () => {
   it('returns an empty array for an unknown extension id', () => {
     const inv = composeInventory(baseInput());
     expect(directInstallProfileIds(inv, 'pub.does-not-exist')).toEqual([]);
+  });
+});
+
+describe('installEverywhereTargets', () => {
+  it('targets non-inheriting profiles missing the extension, skipping inheriting and already-installed ones', () => {
+    const inv = composeInventory(baseInput());
+    // pub.default-only is installed in 'default' (direct) and 'builtin/agents' (inherited) —
+    // only 'aaa' is a non-inheriting profile that still lacks it.
+    expect(installEverywhereTargets(inv, 'pub.default-only').map((p) => p.id)).toEqual(['aaa']);
+  });
+
+  it('returns an empty array once installed (or inherited) in every profile', () => {
+    const inv = composeInventory(baseInput());
+    expect(installEverywhereTargets(inv, 'pub.everywhere')).toEqual([]);
+  });
+
+  it('excludes profiles disabled by a parse warning even when they lack the extension', () => {
+    const input = baseInput();
+    input.profileManifests.set('aaa', new Error('boom'));
+    const inv = composeInventory(input);
+    expect(installEverywhereTargets(inv, 'pub.default-only')).toEqual([]);
+  });
+
+  it('returns an empty array for an unknown extension id', () => {
+    const inv = composeInventory(baseInput());
+    expect(installEverywhereTargets(inv, 'pub.does-not-exist')).toEqual([]);
+  });
+});
+
+describe('removeEverywhereTargets', () => {
+  it('targets every profile the extension is directly installed in', () => {
+    const inv = composeInventory(baseInput());
+    expect(removeEverywhereTargets(inv, 'pub.work-only').map((p) => p.id)).toEqual(['aaa']);
+  });
+
+  it('returns an empty array when not directly installed anywhere', () => {
+    const inv = composeInventory(baseInput());
+    expect(removeEverywhereTargets(inv, 'pub.orphan')).toEqual([]);
+  });
+
+  it('excludes profiles disabled by a parse warning from the target list', () => {
+    const inv: Inventory = {
+      profiles: [
+        { id: 'default', name: 'Default', isDefault: true, inheritsDefaultExtensions: false },
+        { id: 'p1', name: 'P1', isDefault: false, inheritsDefaultExtensions: false },
+        { id: 'p2', name: 'P2', isDefault: false, inheritsDefaultExtensions: false },
+      ],
+      extensions: [
+        {
+          id: 'pub.shared',
+          displayName: 'Shared',
+          versions: [],
+          applyToAllProfiles: false,
+          installedIn: ['p1', 'p2'],
+          orphaned: false,
+        },
+      ],
+      warnings: [{ file: 'profiles/p2/extensions.json', message: 'bad', affectedProfileIds: ['p2'] }],
+    };
+    expect(removeEverywhereTargets(inv, 'pub.shared').map((p) => p.id)).toEqual(['p1']);
   });
 });

@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import { buildOrphanInfos, CleanupService } from '../core/cleanup';
-import { directInstallProfileIds, type InventoryService } from '../core/inventory';
+import {
+  directInstallProfileIds,
+  installEverywhereTargets,
+  removeEverywhereTargets,
+  type InventoryService,
+} from '../core/inventory';
 import { MutationError, type MutationService } from '../core/mutations';
 import type { HostToWebview, Inventory, WebviewToHost } from '../core/types';
 
@@ -112,6 +117,12 @@ export class MatrixPanel {
       case 'toggleAllProfiles':
         await this.guard(() => this.toggleAllProfiles(m.extId));
         return;
+      case 'installEverywhere':
+        await this.guard(() => this.installEverywhere(services, m.extId));
+        return;
+      case 'removeEverywhere':
+        await this.guard(() => this.removeEverywhere(services, m.extId));
+        return;
       case 'requestOrphans':
         await this.guard(async () => {
           const inv = this.lastInventory ?? (await services.inventory.getInventory());
@@ -195,6 +206,79 @@ export class MatrixPanel {
     void vscode.window.showInformationMessage(
       'Right-click the extension in the Extensions view and choose "Apply Extension to all Profiles".',
     );
+  }
+
+  private async installEverywhere(services: Services, extId: string): Promise<void> {
+    const inv = this.lastInventory;
+    const ext = inv?.extensions.find((x) => x.id === extId);
+    if (!inv || !ext) return;
+
+    const targets = installEverywhereTargets(inv, extId);
+    if (targets.length === 0) {
+      await vscode.window.showInformationMessage('Already installed in every profile.');
+      await this.refresh();
+      return;
+    }
+
+    const pick = await vscode.window.showWarningMessage(
+      `Install "${ext.displayName}" into ${targets.length} profile(s)?\n\n${targets.map((p) => p.name).join('\n')}`,
+      { modal: true },
+      'Install',
+    );
+    if (pick !== 'Install') {
+      await this.refresh(); // revert any pending UI state
+      return;
+    }
+
+    for (const p of targets) this.post({ type: 'pending', extId, profileId: p.id });
+    // Sequential and awaited so a mid-loop failure (propagated by guard()) stops remaining
+    // installs instead of racing ahead — the MutationService queue already serializes the CLI
+    // calls themselves, this loop controls the higher-level stop-on-error behavior.
+    for (const p of targets) {
+      const profileName = p.isDefault ? undefined : p.name;
+      await services.mutations.install(extId, profileName);
+    }
+    await this.refresh();
+  }
+
+  private async removeEverywhere(services: Services, extId: string): Promise<void> {
+    const inv = this.lastInventory;
+    const ext = inv?.extensions.find((x) => x.id === extId);
+    if (!inv || !ext) return;
+
+    const targets = removeEverywhereTargets(inv, extId);
+    if (targets.length === 0) {
+      await vscode.window.showInformationMessage('Not directly installed in any profile.');
+      await this.refresh();
+      return;
+    }
+
+    // Always warn like the last-profile path in toggleCell, appending the cascade sentence
+    // whenever the default profile is a target and other profiles inherit its extensions.
+    const inheritingProfiles = targets.some((p) => p.isDefault)
+      ? inv.profiles.filter((p) => p.inheritsDefaultExtensions)
+      : [];
+    const cascadeWarning =
+      inheritingProfiles.length > 0
+        ? ` Profiles that inherit the Default profile's extensions (${inheritingProfiles.map((p) => p.name).join(', ')}) will also lose it.`
+        : '';
+
+    const pick = await vscode.window.showWarningMessage(
+      `Remove "${ext.displayName}" from ${targets.length} profile(s)?\n\n${targets.map((p) => p.name).join('\n')}${cascadeWarning}`,
+      { modal: true },
+      'Remove',
+    );
+    if (pick !== 'Remove') {
+      await this.refresh(); // revert any pending UI state
+      return;
+    }
+
+    for (const p of targets) this.post({ type: 'pending', extId, profileId: p.id });
+    for (const p of targets) {
+      const profileName = p.isDefault ? undefined : p.name;
+      await services.mutations.uninstall(extId, profileName);
+    }
+    await this.refresh();
   }
 
   private async cleanup(services: Services, folderNames: string[]): Promise<void> {

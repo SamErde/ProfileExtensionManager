@@ -30,6 +30,15 @@ th { position: sticky; top: 0; background: var(--vscode-editor-background); }
   margin-left: 0.5rem; font-size: 0.7em; padding: 0.1rem 0.4rem; border-radius: 0.5rem; border: none; cursor: pointer;
   background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
 }
+.row-actions { margin-left: 0.5rem; display: inline-flex; gap: 0.15rem; }
+.row-actions button {
+  font-size: 0.7em; padding: 0.1rem 0.4rem; border-radius: 0.5rem; border: none; cursor: pointer;
+  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+  opacity: 0; transition: opacity 0.1s;
+}
+tr:hover .row-actions button, .row-actions button:focus { opacity: 1; }
+.row-actions button:disabled { cursor: not-allowed; }
+tr:hover .row-actions button:disabled, .row-actions button:disabled:focus { opacity: 0.35; }
 .inherited { opacity: 0.55; }
 .spinner { animation: spin 1s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
