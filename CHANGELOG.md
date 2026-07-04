@@ -2,6 +2,14 @@
 
 All notable changes to the Profile Extension Manager extension are documented in this file.
 
+## [0.8.2](https://github.com/SamErde/ProfileExtensionManager/compare/v0.8.1...v0.8.2) (2026-07-04)
+
+
+### Bug Fixes
+
+* refresh on silent no-op paths so local pending state always clears ([290fb58](https://github.com/SamErde/ProfileExtensionManager/commit/290fb58d1b00c34d2a9320fa2b22180addc7ceed))
+* **webview:** instant pending feedback and visible hover-card border ([b8569c5](https://github.com/SamErde/ProfileExtensionManager/commit/b8569c52a9d3e492b2d4956468faa45555ab6059))
+
 ## [0.8.1](https://github.com/SamErde/ProfileExtensionManager/compare/v0.8.0...v0.8.1) (2026-07-04)
 
 
