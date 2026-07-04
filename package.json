@@ -1,8 +1,8 @@
 {
   "name": "profile-extension-manager",
   "displayName": "Profile Extension Manager",
-  "description": "See and manage which extensions are installed in which VS Code profiles.",
-  "version": "0.4.0",
+  "description": "See and manage which extensions are installed in each VS Code profile.",
+  "version": "0.5.0",
   "publisher": "SamErde",
   "license": "MIT",
   "engines": { "vscode": "^1.90.0" },
