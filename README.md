@@ -9,9 +9,8 @@
   not through the packaged .vsix. Locally (GitHub, `code --install-extension`), it just works.
 -->
 
-See and manage which extensions are installed in which VS Code profiles — all from one matrix.
+See and manage which extensions are installed in which VS Code profiles, all from one convenient matrix.
 
-**No telemetry. This extension does not collect or transmit any data, ever.**
 
 ## Features
 
@@ -19,7 +18,7 @@ See and manage which extensions are installed in which VS Code profiles — all 
 - **Cross-profile install/uninstall** — act on any profile directly from the matrix; you never have to switch into a profile just to add or remove an extension from it.
 - **`ALL` badge for native "apply to all profiles" extensions** — extensions VS Code itself has flagged via its native "Apply Extension to all Profiles" option are badged `ALL`, kept visually distinct from extensions that merely happen to be installed in every profile individually.
 - **Orphan cleanup** — find extension versions on disk that no profile references, review them (size, last modified), and move them to the Recycle Bin/Trash. Nothing is ever deleted without your explicit confirmation.
-- **No telemetry. None.**
+- **Privacy** - This extension never collects or transmits any data.**
 
 ## How it works
 
