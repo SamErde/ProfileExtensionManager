@@ -15,6 +15,8 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      # Draft releases have no git tag until published — job 2 checks out by SHA.
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -36,7 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          # SHA, not tag: this repo uses immutable releases, so release-please
+          # creates a DRAFT release (no tag exists yet). The vsix is attached
+          # while the draft is mutable; publishing (below) creates the tag and
+          # seals the release — assets included — immutably.
+          ref: ${{ needs.release-please.outputs.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -49,10 +55,16 @@ jobs:
         run: xvfb-run -a npm run test:integration
       - name: Package extension
         run: npm run package
-      - name: Attach VSIX to GitHub Release
+      - name: Attach VSIX to draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: gh release upload "${{ needs.release-please.outputs.tag_name }}" releases/*.vsix
+      - name: Publish release (immutability seals it with assets attached)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false
 
       # --- Marketplace publishing (disabled until VSCE_PAT secret exists) ---
       # To enable auto-publish to the VS Code Marketplace:
