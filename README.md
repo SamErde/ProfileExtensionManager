@@ -1,13 +1,12 @@
 # Personas
 
-> [!NOTE]
-> This extension was renamed from "Profile Extension Manager" to **Personas** — the former name was too similar to existing Marketplace extensions.
-
 <img src="assets/brand/banner.png" alt="Personas banner" width="100%" />
 
-Easily see and manage which extensions are installed in each VS Code profile, all from one convenient matrix.
+Easily manage your dev personas: the different Git identities, VS Code profiles, and extensions that you need in different contexts.
 
 ## Features
+
+Easily see and manage which extensions are installed in each VS Code profile, all from one convenient matrix.
 
 - **Profile x extension matrix**: Show every profile as a column and every extension as a row. Toggle any cell to install or uninstall the extension for that profile.
 - **Cross-profile install/uninstall**: Act on any profile directly from the matrix; you never have to switch into a profile just to add or remove an extension from it.
