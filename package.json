@@ -1,8 +1,8 @@
 {
-  "name": "profile-extension-manager",
-  "displayName": "Profile Extension Manager",
+  "name": "personas",
+  "displayName": "Personas",
   "description": "See and manage which extensions are installed in each VS Code profile.",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "publisher": "SamErde",
   "license": "MIT",
   "engines": {

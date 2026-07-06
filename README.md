@@ -1,4 +1,7 @@
-# Profile Extension Manager
+# Personas
+
+> [!WARNING]
+> This extension is being re-branded from "Profile Extension Manager" because there are too many extensions with *similar* names. This is a test release to see if the new "Persona Manager" name will be allowed.
 
 <img src="assets/brand/banner.png" alt="Profile Extension Manager banner" width="100%" />
 
