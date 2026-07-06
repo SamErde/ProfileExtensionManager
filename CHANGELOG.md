@@ -2,7 +2,7 @@
 
 All notable changes to the Personas extension are documented in this file.
 
-## [0.8.4](https://github.com/SamErde/Personas/compare/v0.8.3...v0.8.4) (2026-07-06)
+## [0.8.5](https://github.com/SamErde/Personas/compare/v0.8.3...v0.8.5) (2026-07-06)
 
 
 ### Miscellaneous Chores
