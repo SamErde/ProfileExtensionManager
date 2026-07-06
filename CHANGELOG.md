@@ -2,6 +2,13 @@
 
 All notable changes to the Personas extension are documented in this file.
 
+## [0.8.4](https://github.com/SamErde/Personas/compare/v0.8.3...v0.8.4) (2026-07-06)
+
+
+### Miscellaneous Chores
+
+* rebrand extension from "Profile Extension Manager" to "Personas"; command, view, and configuration identifiers moved to the `personas.*` namespace ([e493519](https://github.com/SamErde/Personas/commit/e4935195bb70577bfb1d5b004506906251c9774b))
+
 ## [0.8.3](https://github.com/SamErde/Personas/compare/v0.8.2...v0.8.3) (2026-07-04)
 
 
