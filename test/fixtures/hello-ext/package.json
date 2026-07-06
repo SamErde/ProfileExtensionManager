@@ -1,9 +1,9 @@
 {
-  "name": "visex-hello-fixture",
-  "displayName": "Visex Hello Fixture",
-  "description": "Inert fixture extension used by Visex integration tests.",
+  "name": "personas-hello-fixture",
+  "displayName": "Personas Hello Fixture",
+  "description": "Inert fixture extension used by Personas integration tests.",
   "version": "0.0.1",
-  "publisher": "visex-tests",
+  "publisher": "personas-tests",
   "license": "MIT",
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Other"],

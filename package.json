@@ -1,7 +1,7 @@
 {
   "name": "personas",
   "displayName": "Personas",
-  "description": "See and manage which extensions are installed in each VS Code profile.",
+  "description": "Easily manage your dev personas: the different Git identities, VS Code profiles, and extensions that you need in different contexts.",
   "version": "0.8.4",
   "publisher": "SamErde",
   "license": "MIT",
@@ -21,44 +21,46 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SamErde/ProfileExtensionManager"
+    "url": "https://github.com/SamErde/Personas"
   },
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
     "commands": [
       {
-        "command": "profileExtensionManager.showMatrix",
+        "command": "personas.showMatrix",
         "title": "Show Extension Matrix",
-        "category": "Profile Extension Manager",
+        "category": "Personas",
         "icon": "$(extensions)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "profileExtensionManager",
-          "title": "Profile Extension Manager",
+          "id": "personas",
+          "title": "Personas",
           "icon": "media/activity-icon.svg"
         }
       ]
     },
     "views": {
-      "profileExtensionManager": [
+      "personas": [
         {
-          "id": "profileExtensionManager.welcome",
+          "id": "personas.welcome",
           "name": "Profiles",
-          "type": "webview"
+          "type": "webview",
+          "icon": "media/activity-icon.svg",
+          "contextualTitle": "Personas"
         }
       ]
     },
     "configuration": {
-      "title": "Profile Extension Manager",
+      "title": "Personas",
       "properties": {
-        "profileExtensionManager.openMatrixOnActivityBarClick": {
+        "personas.openMatrixOnActivityBarClick": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "When enabled, activating the Profile Extension Manager sidebar automatically opens the Extension Matrix — including on window restore if the sidebar was left active. Disable to require clicking the \"Open Extension Matrix\" button instead."
+          "markdownDescription": "When enabled, activating the Personas sidebar automatically opens the Extension Matrix — including on window restore if the sidebar was left active. Disable to require clicking the \"Open Extension Matrix\" button instead."
         }
       }
     }
