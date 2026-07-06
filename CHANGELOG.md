@@ -37,7 +37,7 @@ Re-release of the 0.7.1 content with no code changes. A release-automation
 fault (draft releases being invisible to release-please's boundary
 detection) re-collected the full project history into this version's notes;
 the generated entries duplicated earlier releases and were removed. See
-v0.5.0 and earlier sections for the actual feature history.
+the 0.7.0 and 0.6.0 sections below for the actual feature history.
 
 ## [0.7.1](https://github.com/SamErde/Personas/compare/v0.7.0...v0.7.1) (2026-07-04)
 
