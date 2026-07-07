@@ -1,10 +1,9 @@
 ---
 name: profile-extension-manager-project
-description: "State of the Personas VS Code extension project (formerly \"Profile Extension Manager\", earlier working name \"Visex\") at C:\\Users\\SamErde\\Code\\Public\\Profile-Extension-Manager"
+description: "State of the Personas VS Code extension project (formerly \"Profile Extension Manager\", earlier working name \"Visex\")"
 metadata: 
   node_type: memory
   type: project
-  originSessionId: ab59b6a5-0ecb-4e79-b153-6ab65fb25308
 ---
 
 **Personas** (renamed 2026-07-06 from "Profile Extension Manager"; earliest working name was "Visex"). Repo folder is still `Profile-Extension-Manager`, but package name is `personas`, GitHub repo renamed to `SamErde/Personas` (done 2026-07-06; `origin` remote updated), displayName/category/activity-bar label "Personas". VS Code extension showing an extensions × profiles matrix with cross-profile install/uninstall via the `code` CLI and orphan cleanup (trash + confirm).
@@ -17,4 +16,4 @@ The rename touched every layer: command/view/config IDs are now `personas.*` (wa
 
 **Deferred follow-up (user-requested 2026-07-06):** do a holistic review of the GitHub Actions workflows (`.github/workflows/ci.yml` + `release-please.yml`) as a whole — not yet started.
 
-**How to apply:** brand source of truth is `assets/BRAND.md` (v3: three-heads mark, amber active persona, tagline "One person, many personas."). Deliberately NOT renamed: `assets/archive/` (old assets by design), historical CHANGELOG version entries + commit/compare URLs (real history; GitHub redirects the repo rename), and dated `docs/superpowers/` filenames (content updated, filenames kept). Brand SVG artwork already matches the new mark — only wordmark text was swapped; PNGs (banner.png etc.) still need regeneration from the SVGs. Verified VS Code state-file facts in `docs/spikes/findings.md`; apply-to-all-profiles is NOT programmatically togglable (guided fallback shipped). User's machine has `ELECTRON_RUN_AS_NODE=1` globally (stripped before @vscode/test-electron). Remaining optional cleanup: regenerate PNG brand assets (banner.png etc.) from the updated SVGs; delete the stale `deps-migration` branch. (The `continue-on-error` cleanup is done — PR #23.)
+**How to apply:** brand source of truth is `assets/BRAND.md` (v3: three-heads mark, amber active persona, tagline "One person, many personas."). Deliberately NOT renamed: `assets/archive/` (old assets by design), historical CHANGELOG version entries + commit/compare URLs (real history; GitHub redirects the repo rename), and dated `docs/superpowers/` filenames (content updated, filenames kept). Brand SVG artwork already matches the new mark — only wordmark text was swapped; PNGs (banner.png etc.) still need regeneration from the SVGs. Verified VS Code state-file facts in `docs/spikes/findings.md`; apply-to-all-profiles is NOT programmatically togglable (guided fallback shipped). If `ELECTRON_RUN_AS_NODE=1` is set globally in the environment, the integration harness strips it before launching @vscode/test-electron (otherwise Code launches as bare Node). Remaining optional cleanup: regenerate PNG brand assets (banner.png etc.) from the updated SVGs; delete the stale `deps-migration` branch. (The `continue-on-error` cleanup is done — PR #23.)
